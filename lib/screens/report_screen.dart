@@ -24,8 +24,35 @@ class _ReportScreenState extends State<ReportScreen> {
   CameraController? _cameraController;
   XFile? _capturedImage;
   String? _roadName;
+  String? _aiAnalysis;
+  String? _aiImageUrl;
   bool _isLocating = false;
   bool _isSubmitting = false;
+  bool _isAnalyzing = false;
+
+  Future<void> _runAIDiagnostic() async {
+    if (_capturedImage == null) return;
+    setState(() => _isAnalyzing = true);
+    
+    try {
+      final result = await apiClient.analyzePothole(_capturedImage!.path);
+      if (mounted) {
+        setState(() {
+          _aiAnalysis = result['analysis'];
+          _aiImageUrl = result['imageUrl'];
+          
+          // Collaborative AI: Suggest a severity based on analysis
+          if (_aiAnalysis?.contains('areas identified') ?? false) {
+            _selectedSeverity = Severity.high;
+          }
+          
+          _isAnalyzing = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isAnalyzing = false);
+    }
+  }
 
   @override
   void initState() {
@@ -100,6 +127,8 @@ class _ReportScreenState extends State<ReportScreen> {
       description: _descriptionController.text,
       timestamp: DateTime.now(),
       imageUrl: _capturedImage?.path,
+      aiAnalysis: _aiAnalysis,
+      aiImageUrl: _aiImageUrl,
     );
     await apiClient.submitReport(report);
     if (mounted) {
@@ -280,7 +309,50 @@ class _ReportScreenState extends State<ReportScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                if (_aiAnalysis != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentCyan.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.accentCyan.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.auto_awesome, color: AppTheme.accentCyan, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "AI Suggestion: $_aiAnalysis",
+                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_capturedImage != null && _aiAnalysis == null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _isAnalyzing ? null : _runAIDiagnostic,
+                        icon: _isAnalyzing 
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.auto_awesome, size: 16),
+                        label: Text(_isAnalyzing ? 'ENGINE RUNNING...' : 'RUN AI DIAGNOSTIC'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.accentCyan,
+                          side: const BorderSide(color: AppTheme.accentCyan),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Expanded(

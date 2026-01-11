@@ -71,6 +71,47 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, String?>> analyzePothole(String imagePath) async {
+    try {
+      final bytes = await File(imagePath).readAsBytes();
+      final base64Image = base64Encode(bytes);
+      
+      final response = await _dio.post(
+        'https://api.bytez.com/v1/model/run',
+        data: {
+          'model': _modelId,
+          'input': 'data:image/jpeg;base64,$base64Image',
+        },
+        options: Options(
+          headers: {
+            'Authorization': _bytezKey,
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.data != null && response.data['output'] != null) {
+        final output = response.data['output'];
+        String analysis = "Pothole segmentation completed successfully.";
+        String? imageUrl;
+        
+        if (output is String && (output.startsWith('http') || output.startsWith('data:image'))) {
+          imageUrl = output;
+        } else if (output is List) {
+          analysis = "Pothole detected and segmented: ${output.length} areas identified.";
+        }
+        
+        return {
+          'analysis': analysis,
+          'imageUrl': imageUrl,
+        };
+      }
+    } catch (e) {
+      print('AI Analysis error: $e');
+    }
+    return {};
+  }
+
   Future<void> syncUnsyncedReports() async {
     final unsynced = LocalStorage.getUnsyncedReports();
     for (var report in unsynced) {
@@ -86,39 +127,9 @@ class ApiClient {
 
         // 2. Background AI Audit (Bytez Segmentation)
         if (aiAnalysis == null && report.imageUrl != null) {
-          try {
-            final bytes = await File(report.imageUrl!).readAsBytes();
-            final base64Image = base64Encode(bytes);
-            
-            final response = await Dio().post(
-              'https://api.bytez.com/v1/model/run',
-              data: {
-                'model': _modelId,
-                'input': 'data:image/jpeg;base64,$base64Image',
-              },
-              options: Options(
-                headers: {
-                  'Authorization': _bytezKey,
-                  'Content-Type': 'application/json',
-                },
-              ),
-            );
-
-            if (response.data != null && response.data['output'] != null) {
-               final output = response.data['output'];
-               aiAnalysis = "Pothole segmentation completed successfully.";
-               
-               // If output is a string (image link or base64)
-               if (output is String && (output.startsWith('http') || output.startsWith('data:image'))) {
-                 aiImageUrl = output;
-               } else if (output is List) {
-                 aiAnalysis = "Pothole detected and segmented: ${output.length} areas identified.";
-               }
-               print('Bytez AI Raw Output: $output');
-            }
-          } catch (aiError) {
-            print('Bytez Audit failed: $aiError');
-          }
+          final result = await analyzePothole(report.imageUrl!);
+          aiAnalysis = result['analysis'];
+          aiImageUrl = result['imageUrl'];
         }
 
         // Create updated object
