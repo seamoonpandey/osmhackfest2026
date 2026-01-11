@@ -4,9 +4,15 @@ import 'network/api_config.dart';
 import 'network/mock_interceptor.dart';
 import '../models/models.dart';
 import 'local_storage.dart';
+import 'dart:typed_data';
+import 'dart:io'; // Required for File operations
+
+import 'dart:convert';
 
 class ApiClient {
   late final Dio _dio;
+  final String _bytezKey = "4964e8ff82c4e31c064f4ee77db4fce4";
+  final String _modelId = "keremberke/yolov8m-pothole-segmentation";
 
   ApiClient() {
     _dio = Dio(
@@ -69,7 +75,73 @@ class ApiClient {
     final unsynced = LocalStorage.getUnsyncedReports();
     for (var report in unsynced) {
       try {
-        await _dio.post('/reports', data: report.toJson());
+        String? updatedRoadName = report.roadName;
+        String? aiAnalysis = report.aiAnalysis;
+        String? aiImageUrl = report.aiImageUrl;
+
+        // 1. Background Road Discovery (if was offline)
+        if (updatedRoadName == null || updatedRoadName.isEmpty) {
+          updatedRoadName = await reverseGeocode(report.lat, report.lng);
+        }
+
+        // 2. Background AI Audit (Bytez Segmentation)
+        if (aiAnalysis == null && report.imageUrl != null) {
+          try {
+            final bytes = await File(report.imageUrl!).readAsBytes();
+            final base64Image = base64Encode(bytes);
+            
+            final response = await Dio().post(
+              'https://api.bytez.com/v1/model/run',
+              data: {
+                'model': _modelId,
+                'input': 'data:image/jpeg;base64,$base64Image',
+              },
+              options: Options(
+                headers: {
+                  'Authorization': _bytezKey,
+                  'Content-Type': 'application/json',
+                },
+              ),
+            );
+
+            if (response.data != null && response.data['output'] != null) {
+               final output = response.data['output'];
+               aiAnalysis = "Pothole segmentation completed successfully.";
+               
+               // If output is a string (image link or base64)
+               if (output is String && (output.startsWith('http') || output.startsWith('data:image'))) {
+                 aiImageUrl = output;
+               } else if (output is List) {
+                 aiAnalysis = "Pothole detected and segmented: ${output.length} areas identified.";
+               }
+               print('Bytez AI Raw Output: $output');
+            }
+          } catch (aiError) {
+            print('Bytez Audit failed: $aiError');
+          }
+        }
+
+        // Create updated object
+        final updatedReport = RoadReport(
+          id: report.id,
+          lat: report.lat,
+          lng: report.lng,
+          osmNodeId: report.osmNodeId,
+          roadName: updatedRoadName,
+          severity: report.severity,
+          description: report.description,
+          imageUrl: report.imageUrl,
+          timestamp: report.timestamp,
+          isSynced: false,
+          aiAnalysis: aiAnalysis,
+          aiImageUrl: aiImageUrl,
+        );
+
+        // Update locally before pushing
+        await LocalStorage.saveReport(updatedReport);
+
+        // 3. Push to remote
+        await _dio.post('/reports', data: updatedReport.toJson());
         await LocalStorage.markAsSynced(report.id);
       } catch (e) {
         print('Sync failed for ${report.id}: $e');

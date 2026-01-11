@@ -27,13 +27,15 @@ class RoadReportAdapter extends TypeAdapter<RoadReport> {
       imageUrl: fields[7] as String?,
       timestamp: fields[8] as DateTime,
       isSynced: fields[9] as bool,
+      aiAnalysis: fields[10] as String?,
+      aiImageUrl: fields[11] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, RoadReport obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +55,11 @@ class RoadReportAdapter extends TypeAdapter<RoadReport> {
       ..writeByte(8)
       ..write(obj.timestamp)
       ..writeByte(9)
-      ..write(obj.isSynced);
+      ..write(obj.isSynced)
+      ..writeByte(10)
+      ..write(obj.aiAnalysis)
+      ..writeByte(11)
+      ..write(obj.aiImageUrl);
   }
 
   @override

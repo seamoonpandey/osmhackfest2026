@@ -33,6 +33,11 @@ class RoadReport {
   @HiveField(9)
   final bool isSynced;
 
+  @HiveField(10)
+  final String? aiAnalysis;
+  @HiveField(11)
+  final String? aiImageUrl;
+
   RoadReport({
     required this.id,
     double? lat,
@@ -45,6 +50,8 @@ class RoadReport {
     this.imageUrl,
     required this.timestamp,
     this.isSynced = false,
+    this.aiAnalysis,
+    this.aiImageUrl,
   })  : this.lat = lat ?? location?.latitude ?? 0.0,
         this.lng = lng ?? location?.longitude ?? 0.0;
 
@@ -61,6 +68,9 @@ class RoadReport {
       'description': description,
       'imageUrl': imageUrl,
       'timestamp': timestamp.toIso8601String(),
+      'isSynced': isSynced,
+      'aiAnalysis': aiAnalysis,
+      'aiImageUrl': aiImageUrl,
     };
   }
 
@@ -76,6 +86,8 @@ class RoadReport {
       imageUrl: json['imageUrl'],
       timestamp: DateTime.parse(json['timestamp']),
       isSynced: json['isSynced'] ?? true,
+      aiAnalysis: json['aiAnalysis'],
+      aiImageUrl: json['aiImageUrl'],
     );
   }
 }

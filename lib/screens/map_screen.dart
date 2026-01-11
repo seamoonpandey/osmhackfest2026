@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -403,6 +404,37 @@ class _MapScreenState extends State<MapScreen> {
                   _buildSidebarFilter('Urgent Issues', AppTheme.highRisk, Severity.high),
                   _buildSidebarFilter('Repair Needed', AppTheme.mediumRisk, Severity.medium),
                   _buildSidebarFilter('Minor Issues', AppTheme.lowRisk, Severity.low),
+                  const SizedBox(height: 32),
+                  const Text('INTELLIGENCE',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white38,
+                          letterSpacing: 1.5)),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Starting AI Audit & Cloud Sync...')),
+                      );
+                      await apiClient.syncUnsyncedReports();
+                      await _loadData();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('AI Audit & Sync Complete!')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.auto_awesome, size: 18),
+                    label: const Text('SYNC & AI AUDIT'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentCyan.withOpacity(0.2),
+                      foregroundColor: AppTheme.accentCyan,
+                      side: const BorderSide(color: AppTheme.accentCyan),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -774,27 +806,52 @@ class _MapScreenState extends State<MapScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    report.roadName ?? 'Unknown Road',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                  child: Text(
+                    report.roadName ?? 'Locating Road...',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getSeverityColor(report.severity).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      report.severity.name.toUpperCase(),
-                      style: TextStyle(
-                        color: _getSeverityColor(report.severity),
-                        fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _getSeverityColor(report.severity).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _getSeverityColor(report.severity).withOpacity(0.5)),
+                      ),
+                      child: Text(
+                        report.severity.name.toUpperCase(),
+                        style: TextStyle(
+                          color: _getSeverityColor(report.severity),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
-                  ),
+                    if (!report.isSynced && report.aiAnalysis == null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'PENDING AI AUDIT',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: AppTheme.accentCyan.withOpacity(0.7),
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -837,6 +894,93 @@ class _MapScreenState extends State<MapScreen> {
                 report.description,
                 style: const TextStyle(fontSize: 16, color: Colors.white70),
               ),
+              if (report.aiAnalysis != null) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.primaryBlue.withOpacity(0.15),
+                        AppTheme.accentCyan.withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.accentCyan.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.auto_awesome, color: AppTheme.accentCyan, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'AI ANALYSIS',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: AppTheme.accentCyan,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        report.aiAnalysis!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      if (report.aiImageUrl != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'AI SEGMENTATION MASK',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: AppTheme.accentCyan,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: AspectRatio(
+                            aspectRatio: 16 / 9,
+                            child: report.aiImageUrl!.startsWith('data:image')
+                                ? Image.memory(
+                                    base64Decode(report.aiImageUrl!.split(',').last),
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.network(
+                                    report.aiImageUrl!,
+                                    fit: BoxFit.cover,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Center(
+                                        child: CircularProgressIndicator(
+                                          value: loadingProgress.expectedTotalBytes != null
+                                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      );
+                                    },
+                                    errorBuilder: (context, error, stackTrace) => Container(
+                                      color: AppTheme.surfaceElevated,
+                                      child: const Icon(Icons.broken_image_rounded, color: Colors.white24, size: 48),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               Row(
                 children: [
