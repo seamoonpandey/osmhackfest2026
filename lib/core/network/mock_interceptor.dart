@@ -26,6 +26,15 @@ class MockInterceptor extends Interceptor {
     }
 
     if (path.endsWith('/reports') && method == 'POST') {
+      try {
+        final data = options.data;
+        if (data is Map<String, dynamic>) {
+          _mockReportsData.insert(0, data);
+        }
+      } catch (e) {
+        // Ignore parsing errors for mock
+      }
+      
       return handler.resolve(
         Response(
           requestOptions: options,
@@ -48,7 +57,7 @@ class MockInterceptor extends Interceptor {
     handler.next(options);
   }
 
-  final _mockReportsData = [
+  final List<Map<String, dynamic>> _mockReportsData = [
     {
       'id': '1',
       'lat': 27.7172,
@@ -57,7 +66,7 @@ class MockInterceptor extends Interceptor {
       'roadName': 'Durbar Marg',
       'severity': 2, // High
       'description': 'Major pothole on main road.',
-      'imageUrl': null,
+      'imageUrl': 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=200&h=200&fit=crop',
       'timestamp': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
     },
     {
@@ -68,12 +77,12 @@ class MockInterceptor extends Interceptor {
       'roadName': 'Lazimpat',
       'severity': 1, // Medium
       'description': 'Minor cracks appearing.',
-      'imageUrl': null,
+      'imageUrl': 'https://images.unsplash.com/photo-1599395115286-a36c6e737194?w=200&h=200&fit=crop',
       'timestamp': DateTime.now().subtract(const Duration(hours: 5)).toIso8601String(),
     },
   ];
 
-  final _mockSegmentsData = [
+  final List<Map<String, dynamic>> _mockSegmentsData = [
     {
       'id': 's1',
       'name': 'Durbar Marg',

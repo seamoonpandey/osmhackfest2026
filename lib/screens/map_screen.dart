@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -96,6 +97,7 @@ class _MapScreenState extends State<MapScreen> {
   bool _isSearchingUI = false;
   List<Map<String, dynamic>> _searchResults = [];
   DateTime? _lastSearchTime;
+  Set<Severity> _visibleSeverities = Set.from(Severity.values);
 
   @override
   void initState() {
@@ -287,31 +289,11 @@ class _MapScreenState extends State<MapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.osmapp',
               ),
-              PolylineLayer(
-                polylines: [
-                  ..._segments.map((segment) => Polyline(
-                        points: segment.points,
-                        color: Colors.white.withOpacity(0.05),
-                        strokeWidth: 16.0,
-                        strokeCap: StrokeCap.round,
-                      )),
-                  ..._segments.map((segment) => Polyline(
-                        points: segment.points,
-                        color: _getSeverityColor(segment.severity).withOpacity(0.3),
-                        strokeWidth: 10.0,
-                        strokeCap: StrokeCap.round,
-                      )),
-                  ..._segments.map((segment) => Polyline(
-                        points: segment.points,
-                        color: _getSeverityColor(segment.severity),
-                        strokeWidth: 3.0,
-                        strokeCap: StrokeCap.round,
-                      )),
-                ],
-              ),
               MarkerLayer(
                 markers: [
-                  ..._reports.map((report) => Marker(
+                  ..._reports
+                      .where((r) => _visibleSeverities.contains(r.severity))
+                      .map((report) => Marker(
                         point: report.location,
                         width: 60,
                         height: 60,
@@ -338,6 +320,7 @@ class _MapScreenState extends State<MapScreen> {
             right: 16,
             bottom: 120,
             child: FloatingActionButton.small(
+              heroTag: 'location_fab',
               onPressed: _goToCurrentLocation,
               backgroundColor: AppTheme.surfaceBg.withOpacity(0.8),
               child: const Icon(Icons.my_location_rounded, color: Colors.white),
@@ -354,16 +337,78 @@ class _MapScreenState extends State<MapScreen> {
     return Stack(
       alignment: Alignment.center,
       children: [
+        // Marker Shadow/Glow
         Container(
-          width: 30,
-          height: 30,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color.withOpacity(0.2),
-            border: Border.all(color: color.withOpacity(0.5), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.4),
+                blurRadius: 12,
+                spreadRadius: 2,
+              ),
+            ],
           ),
         ),
-        Icon(Icons.location_on_rounded, color: color, size: 30),
+        // Main Marker Container
+        Container(
+          width: 36,
+          height: 36,
+          padding: const EdgeInsets.all(2),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: report.imageUrl != null
+                ? (report.imageUrl!.startsWith('http')
+                    ? Image.network(
+                        report.imageUrl!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: color.withOpacity(0.1),
+                            child: const Center(child: SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 2))),
+                          );
+                        },
+                        errorBuilder: (c, e, s) => Container(
+                          color: color,
+                          child: const Icon(Icons.broken_image_rounded, color: Colors.white, size: 18),
+                        ),
+                      )
+                    : Image.file(
+                        File(report.imageUrl!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Container(
+                          color: color,
+                          child: const Icon(Icons.no_photography_rounded, color: Colors.white, size: 18),
+                        ),
+                      ))
+                : Container(
+                    color: color,
+                    child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                  ),
+          ),
+        ),
+        // Risk Badge (Bottom Right)
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -423,24 +468,27 @@ class _MapScreenState extends State<MapScreen> {
       bottom: 24,
       left: 16,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.surfaceBg.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white10),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _buildLegendItem('URGENT', AppTheme.highRisk),
-                const SizedBox(height: 10),
-                _buildLegendItem('REPAIR', AppTheme.mediumRisk),
-                const SizedBox(height: 10),
-                _buildLegendItem('STABLE', AppTheme.lowRisk),
+                const Text('FILTERS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white38, letterSpacing: 1.5)),
+                const SizedBox(height: 12),
+                _buildLegendItem('URGENT', AppTheme.highRisk, Severity.high),
+                const SizedBox(height: 8),
+                _buildLegendItem('REPAIR', AppTheme.mediumRisk, Severity.medium),
+                const SizedBox(height: 8),
+                _buildLegendItem('STABLE', AppTheme.lowRisk, Severity.low),
               ],
             ),
           ),
@@ -470,31 +518,55 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildLegendItem(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceBg.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
+  Widget _buildLegendItem(String label, Color color, Severity severity) {
+    final bool isVisible = _visibleSeverities.contains(severity);
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (isVisible) {
+            _visibleSeverities.remove(severity);
+          } else {
+            _visibleSeverities.add(severity);
+          }
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isVisible ? color.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isVisible ? color.withOpacity(0.5) : Colors.white10,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: isVisible ? color : color.withOpacity(0.2),
+                shape: BoxShape.circle,
+                boxShadow: isVisible ? [
+                  BoxShadow(color: color.withOpacity(0.5), blurRadius: 4, spreadRadius: 1)
+                ] : null,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ],
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11, 
+                fontWeight: FontWeight.bold,
+                color: isVisible ? Colors.white : Colors.white38,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -540,6 +612,41 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              if (report.imageUrl != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: report.imageUrl!.startsWith('http')
+                        ? Image.network(
+                            report.imageUrl!,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: AppTheme.surfaceElevated,
+                              child: const Icon(Icons.broken_image_rounded, color: Colors.white24, size: 48),
+                            ),
+                          )
+                        : Image.file(
+                            File(report.imageUrl!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: AppTheme.surfaceElevated,
+                              child: const Icon(Icons.no_photography_rounded, color: Colors.white24, size: 48),
+                            ),
+                          ),
+                  ),
+                ),
               const SizedBox(height: 16),
               Text(
                 report.description,
