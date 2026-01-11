@@ -579,6 +579,22 @@ class _MapScreenState extends State<MapScreen> {
                           child: const Icon(Icons.sync_rounded, color: AppTheme.primaryBlue, size: 10),
                         ),
                       ),
+                    if (report.aiAnalysis != null)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.accentCyan,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 4),
+                            ],
+                          ),
+                          child: const Icon(Icons.check_rounded, color: Colors.white, size: 8),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -916,7 +932,7 @@ class _MapScreenState extends State<MapScreen> {
                           const Icon(Icons.auto_awesome, color: AppTheme.accentCyan, size: 16),
                           const SizedBox(width: 8),
                           Text(
-                            'AI ANALYSIS',
+                            'SYSTEM AUDIT',
                             style: GoogleFonts.plusJakartaSans(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
@@ -938,7 +954,7 @@ class _MapScreenState extends State<MapScreen> {
                       if (report.aiImageUrl != null) ...[
                         const SizedBox(height: 12),
                         Text(
-                          'AI SEGMENTATION MASK',
+                          'DAMAGE SEGMENTATION',
                           style: GoogleFonts.plusJakartaSans(
                             fontWeight: FontWeight.bold,
                             fontSize: 12,

@@ -325,7 +325,7 @@ class _ReportScreenState extends State<ReportScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            "AI Suggestion: $_aiAnalysis",
+                            "System Review: $_aiAnalysis",
                             style: const TextStyle(fontSize: 12, color: Colors.white70),
                           ),
                         ),
@@ -342,7 +342,7 @@ class _ReportScreenState extends State<ReportScreen> {
                         icon: _isAnalyzing 
                           ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.auto_awesome, size: 16),
-                        label: Text(_isAnalyzing ? 'ENGINE RUNNING...' : 'RUN AI DIAGNOSTIC'),
+                        label: Text(_isAnalyzing ? 'ENGINE RUNNING...' : 'RUN SYSTEM AUDIT'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.accentCyan,
                           side: const BorderSide(color: AppTheme.accentCyan),

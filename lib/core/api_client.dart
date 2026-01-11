@@ -76,10 +76,10 @@ class ApiClient {
       final bytes = await File(imagePath).readAsBytes();
       final base64Image = base64Encode(bytes);
       
+      // Correct Bytez v2 endpoint structure
       final response = await _dio.post(
-        'https://api.bytez.com/v1/model/run',
+        'https://api.bytez.com/models/v2/$_modelId',
         data: {
-          'model': _modelId,
           'input': 'data:image/jpeg;base64,$base64Image',
         },
         options: Options(
@@ -92,13 +92,13 @@ class ApiClient {
 
       if (response.data != null && response.data['output'] != null) {
         final output = response.data['output'];
-        String analysis = "Pothole segmentation completed successfully.";
+        String analysis = "Road damage analysis complete.";
         String? imageUrl;
         
         if (output is String && (output.startsWith('http') || output.startsWith('data:image'))) {
           imageUrl = output;
         } else if (output is List) {
-          analysis = "Pothole detected and segmented: ${output.length} areas identified.";
+          analysis = "Detected ${output.length} potential issues. High importance recommended.";
         }
         
         return {
@@ -107,7 +107,7 @@ class ApiClient {
         };
       }
     } catch (e) {
-      print('AI Analysis error: $e');
+      print('Analysis error: $e');
     }
     return {};
   }
