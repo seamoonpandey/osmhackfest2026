@@ -67,8 +67,10 @@ class ApiClient {
   }
 
 
-  Future<void> syncUnsyncedReports() async {
+  Future<int> syncUnsyncedReports() async {
     final unsynced = LocalStorage.getUnsyncedReports();
+    int syncedCount = 0;
+    
     for (var report in unsynced) {
       try {
         String? updatedRoadName = report.roadName;
@@ -99,10 +101,12 @@ class ApiClient {
         // 3. Push to remote
         await _dio.post('/reports', data: updatedReport.toJson());
         await LocalStorage.markAsSynced(report.id);
+        syncedCount++;
       } catch (e) {
         print('Sync failed for ${report.id}: $e');
       }
     }
+    return syncedCount;
   }
 
   Future<List<RoadSegment>> getRoadSegments() async {
