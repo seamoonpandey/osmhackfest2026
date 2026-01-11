@@ -48,6 +48,8 @@ class ApiClient {
         priorityScore: 4.5,
         points: [
           const LatLng(27.7150, 85.3240),
+          const LatLng(27.7160, 85.3242),
+          const LatLng(27.7175, 85.3245),
           const LatLng(27.7190, 85.3240),
         ],
       ),
@@ -58,6 +60,8 @@ class ApiClient {
         priorityScore: 2.8,
         points: [
           const LatLng(27.7200, 85.3150),
+          const LatLng(27.7205, 85.3180),
+          const LatLng(27.7200, 85.3210),
           const LatLng(27.7200, 85.3250),
         ],
       ),

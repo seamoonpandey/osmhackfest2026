@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -77,27 +78,52 @@ class _MapScreenState extends State<MapScreen> {
                 userAgentPackageName: 'com.example.osmapp',
               ),
               PolylineLayer(
-                polylines: _segments.map((segment) {
-                  return Polyline(
-                    points: segment.points,
-                    color: _getSeverityColor(segment.severity).withOpacity(0.7),
-                    strokeWidth: 6.0,
-                    isDotted: false,
-                  );
-                }).toList(),
+                polylines: [
+                  // Outer Glow layer
+                  ..._segments.map((segment) {
+                    return Polyline(
+                      points: segment.points,
+                      color: _getSeverityColor(segment.severity).withOpacity(0.3),
+                      strokeWidth: 12.0,
+                      strokeCap: StrokeCap.round,
+                      strokeJoin: StrokeJoin.round,
+                    );
+                  }),
+                  // Inner Core layer
+                  ..._segments.map((segment) {
+                    return Polyline(
+                      points: segment.points,
+                      color: _getSeverityColor(segment.severity),
+                      strokeWidth: 5.0,
+                      strokeCap: StrokeCap.round,
+                      strokeJoin: StrokeJoin.round,
+                    );
+                  }),
+                ],
               ),
               MarkerLayer(
                 markers: _reports.map((report) {
                   return Marker(
                     point: report.location,
-                    width: 40,
-                    height: 40,
+                    width: 50,
+                    height: 50,
                     child: GestureDetector(
                       onTap: () => _showReportDetails(report),
-                      child: Icon(
-                        Icons.location_on,
-                        color: _getSeverityColor(report.severity),
-                        size: 40,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _getSeverityColor(report.severity).withOpacity(0.2),
+                            ),
+                          ),
+                          Icon(
+                            Icons.location_on_rounded,
+                            color: _getSeverityColor(report.severity),
+                            size: 32,
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -110,32 +136,89 @@ class _MapScreenState extends State<MapScreen> {
               child: CircularProgressIndicator(),
             ),
           Positioned(
-            bottom: 100,
+            top: 60,
+            left: 16,
             right: 16,
-            child: Column(
-              children: [
-                _buildLegendItem('High Risk', AppTheme.highRisk),
-                const SizedBox(height: 8),
-                _buildLegendItem('Medium Risk', AppTheme.mediumRisk),
-                const SizedBox(height: 8),
-                _buildLegendItem('Low Risk', AppTheme.lowRisk),
-              ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceBg.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, color: Colors.white54),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Search locations...',
+                        style: TextStyle(color: Colors.white54, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 32,
+            left: 16,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceBg.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildLegendItem('Urgent', AppTheme.highRisk),
+                      const SizedBox(height: 8),
+                      _buildLegendItem('Medium', AppTheme.mediumRisk),
+                      const SizedBox(height: 8),
+                      _buildLegendItem('Stable', AppTheme.lowRisk),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ReportScreen()),
-          );
-          if (result == true) {
-            _loadData();
-          }
-        },
-        label: const Text('Report Issue'),
-        icon: const Icon(Icons.add_location_alt),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 16, right: 0),
+        child: FloatingActionButton.extended(
+          onPressed: () async {
+            final result = await Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const ReportScreen(),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  const begin = Offset(0.0, 1.0);
+                  const end = Offset.zero;
+                  const curve = Curves.easeOutQuart;
+                  var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                  return SlideTransition(position: animation.drive(tween), child: child);
+                },
+              ),
+            );
+            if (result == true) {
+              _loadData();
+            }
+          },
+          label: const Text('REPORT ISSUE', style: TextStyle(letterSpacing: 1.2, fontWeight: FontWeight.bold)),
+          icon: const Icon(Icons.add_a_photo_rounded),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
       ),
     );
   }

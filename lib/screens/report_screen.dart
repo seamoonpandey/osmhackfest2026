@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:geolocator/geolocator.dart';
@@ -33,50 +35,30 @@ class _ReportScreenState extends State<ReportScreen> {
   Future<void> _initLocation() async {
     setState(() => _isLocating = true);
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw 'Location services are disabled.';
-      }
-
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw 'Location permissions are denied';
-        }
       }
-
       final position = await Geolocator.getCurrentPosition();
-      setState(() {
-        _currentPosition = position;
-        _isLocating = false;
-      });
-    } catch (e) {
-      setState(() => _isLocating = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        setState(() {
+          _currentPosition = position;
+          _isLocating = false;
+        });
       }
+    } catch (e) {
+      if (mounted) setState(() => _isLocating = false);
     }
   }
 
   Future<void> _initCamera() async {
     final cameras = await availableCameras();
     if (cameras.isEmpty) return;
-
-    _cameraController = CameraController(
-      cameras.first,
-      ResolutionPreset.medium,
-      enableAudio: false,
-    );
-
+    _cameraController = CameraController(cameras.first, ResolutionPreset.high, enableAudio: false);
     try {
       await _cameraController!.initialize();
       if (mounted) setState(() {});
-    } catch (e) {
-      print('Camera error: $e');
-    }
+    } catch (e) {}
   }
 
   @override
@@ -91,34 +73,25 @@ class _ReportScreenState extends State<ReportScreen> {
     try {
       final image = await _cameraController!.takePicture();
       setState(() => _capturedImage = image);
-    } catch (e) {
-      print('Error taking picture: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> _submitReport() async {
-    if (_currentPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Waiting for location...')),
-      );
+    if (_descriptionController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add a description')));
       return;
     }
-
     setState(() => _isSubmitting = true);
-
     final report = RoadReport(
       id: const Uuid().v4(),
-      location: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+      location: LatLng(_currentPosition?.latitude ?? 0, _currentPosition?.longitude ?? 0),
       severity: _selectedSeverity,
       description: _descriptionController.text,
       timestamp: DateTime.now(),
       imageUrl: _capturedImage?.path,
     );
-
     await apiClient.submitReport(report);
-
     if (mounted) {
-      setState(() => _isSubmitting = false);
       Navigator.pop(context, true);
     }
   }
@@ -126,181 +99,209 @@ class _ReportScreenState extends State<ReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Report'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader('Location Status'),
-            const SizedBox(height: 12),
+      backgroundColor: AppTheme.darkBg,
+      body: Stack(
+        children: [
+          _buildCameraPreview(),
+          _buildOverlayControls(),
+          if (_isSubmitting)
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceBg,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _currentPosition != null ? Icons.location_on : Icons.location_off,
-                    color: _currentPosition != null ? AppTheme.lowRisk : AppTheme.highRisk,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _currentPosition != null
-                              ? 'Location Captured'
-                              : (_isLocating ? 'Capturing Location...' : 'Location Missing'),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        if (_currentPosition != null)
-                          Text(
-                            '${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}',
-                            style: const TextStyle(fontSize: 12, color: Colors.white54),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (_isLocating)
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                ],
-              ),
+              color: Colors.black54,
+              child: const Center(child: CircularProgressIndicator()),
             ),
-            const SizedBox(height: 32),
-            _buildSectionHeader('Issue Evidence'),
-            const SizedBox(height: 12),
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: _capturedImage != null
-                    ? Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          // Image.file(File(_capturedImage!.path), fit: BoxFit.cover),
-                          // Placeholder for web/sim where File(path) might fail
-                          const Center(child: Icon(Icons.image, size: 48, color: Colors.white24)),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white),
-                              onPressed: () => setState(() => _capturedImage = null),
-                              style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                            ),
-                          ),
-                        ],
-                      )
-                    : (_cameraController != null && _cameraController!.value.isInitialized
-                        ? Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              CameraPreview(_cameraController!),
-                              Center(
-                                child: IconButton(
-                                  icon: const Icon(Icons.camera_alt, size: 48, color: Colors.white),
-                                  onPressed: _takePicture,
-                                ),
-                              ),
-                            ],
-                          )
-                        : const Center(child: CircularProgressIndicator())),
-              ),
-            ),
-            const SizedBox(height: 32),
-            _buildSectionHeader('Severity Level'),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _buildSeverityTab(Severity.low, 'Low', AppTheme.lowRisk),
-                const SizedBox(width: 8),
-                _buildSeverityTab(Severity.medium, 'Medium', AppTheme.mediumRisk),
-                const SizedBox(width: 8),
-                _buildSeverityTab(Severity.high, 'High', AppTheme.highRisk),
-              ],
-            ),
-            const SizedBox(height: 32),
-            _buildSectionHeader('Description'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _descriptionController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: 'Describe the road condition...',
-                filled: true,
-                fillColor: AppTheme.surfaceBg,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitReport,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentCyan,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: _isSubmitting
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Submit Report',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-              ),
-            ),
-          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    if (_capturedImage != null) {
+      return Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: FileImage(File(_capturedImage!.path)),
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
+
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return Container(color: Colors.black, child: const Center(child: CircularProgressIndicator()));
+    }
+
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: _cameraController!.value.previewSize!.height,
+          height: _cameraController!.value.previewSize!.width,
+          child: CameraPreview(_cameraController!),
         ),
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.bold,
-        color: AppTheme.accentCyan,
-        letterSpacing: 1.2,
+  Widget _buildOverlayControls() {
+    return SafeArea(
+      child: Column(
+        children: [
+          _buildTopBar(),
+          const Spacer(),
+          _buildBottomCard(),
+        ],
       ),
     );
   }
 
-  Widget _buildSeverityTab(Severity severity, String label, Color color) {
-    final isSelected = _selectedSeverity == severity;
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.black26,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _currentPosition != null ? Icons.gps_fixed : Icons.gps_not_fixed,
+                  size: 16,
+                  color: _currentPosition != null ? AppTheme.lowRisk : Colors.white54,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _currentPosition != null ? 'GPS Ready' : 'Locating...',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomCard() {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceBg.withOpacity(0.8),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_capturedImage == null) ...[
+                const Text(
+                  'Capture Road Evidence',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: _takePicture,
+                  child: Container(
+                    height: 80,
+                    width: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 4),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ] else ...[
+                Row(
+                  children: [
+                    _buildSeverityIcon(Severity.low, 'Minor', AppTheme.lowRisk),
+                    const SizedBox(width: 12),
+                    _buildSeverityIcon(Severity.medium, 'Repair', AppTheme.mediumRisk),
+                    const SizedBox(width: 12),
+                    _buildSeverityIcon(Severity.high, 'Urgent', AppTheme.highRisk),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _descriptionController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Describe the issue...',
+                    hintStyle: const TextStyle(color: Colors.white38),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => setState(() => _capturedImage = null),
+                        child: const Text('Retake', style: TextStyle(color: Colors.white54)),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _submitReport,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentCyan,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: const Text('SUBMIT REPORT', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeverityIcon(Severity severity, String label, Color color) {
+    bool isSelected = _selectedSeverity == severity;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _selectedSeverity = severity),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+        child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: isSelected ? color : color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? Colors.white : color.withOpacity(0.3),
-            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isSelected ? Colors.white : Colors.transparent),
           ),
           child: Column(
             children: [
@@ -309,6 +310,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 style: TextStyle(
                   color: isSelected ? Colors.white : color,
                   fontWeight: FontWeight.bold,
+                  fontSize: 12,
                 ),
               ),
             ],
