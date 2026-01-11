@@ -109,13 +109,13 @@ flutter_launcher_icons:
   android: "ic_launch"
   ios: true
   image_path: "assets/images/logo.png"
-  adaptive_icon_background: "#020617"
+  adaptive_icon_background: "#F8F9FA"
   adaptive_icon_foreground: "assets/images/logo.png"
 
 flutter_native_splash:
-  color: "#020617"
+  color: "#F8F9FA"
   image: assets/images/logo.png
   android_12:
     image: assets/images/logo.png
-    color: "#020617"
+    color: "#F8F9FA"
   fullscreen: true
