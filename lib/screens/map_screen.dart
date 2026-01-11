@@ -8,6 +8,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../core/api_client.dart';
 import '../core/theme.dart';
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/models.dart';
 import 'report_screen.dart';
 
@@ -100,12 +102,50 @@ class _MapScreenState extends State<MapScreen> {
   DateTime? _lastSearchTime;
   Set<Severity> _visibleSeverities = Set.from(Severity.values);
   bool _showUserLocation = true;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
     _loadData();
     _startLocationListening();
+    _setupAutoSync();
+  }
+
+  void _setupAutoSync() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+      if (results.contains(ConnectivityResult.mobile) || 
+          results.contains(ConnectivityResult.wifi) ||
+          results.contains(ConnectivityResult.ethernet)) {
+        _performAutoSync();
+      }
+    });
+  }
+
+  Future<void> _performAutoSync() async {
+    // Optional: Check if we actually have unsynced data first could be an optimization
+    // For now, we just try to sync. The API client should handle empty lists gracefully.
+    try {
+      final syncedCount = await apiClient.syncUnsyncedReports();
+      if (syncedCount > 0 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Back online: $syncedCount reports synced!'),
+            backgroundColor: AppTheme.lowRisk,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        _loadData(); // Refresh map data
+      }
+    } catch (e) {
+      // Silent fail on auto-sync errors to not annoy user
+    }
   }
 
   void _startLocationListening() async {
