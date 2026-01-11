@@ -813,7 +813,7 @@ class _MapScreenState extends State<MapScreen> {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            color: const Color(0xFF212529),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -822,7 +822,7 @@ class _MapScreenState extends State<MapScreen> {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.accentCyan,
+                            color: AppTheme.primaryCoral,
                             letterSpacing: 1,
                           ),
                         ),
@@ -874,16 +874,16 @@ class _MapScreenState extends State<MapScreen> {
                               );
                             },
                             errorBuilder: (context, error, stackTrace) => Container(
-                              color: AppTheme.surfaceElevated,
-                              child: const Icon(Icons.broken_image_rounded, color: Colors.white24, size: 48),
+                              color: AppTheme.surfaceMuted,
+                              child: const Icon(Icons.broken_image_rounded, color: Colors.black12, size: 48),
                             ),
                           )
                         : Image.file(
                             File(report.imageUrl!),
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) => Container(
-                              color: AppTheme.surfaceElevated,
-                              child: const Icon(Icons.no_photography_rounded, color: Colors.white24, size: 48),
+                              color: AppTheme.surfaceMuted,
+                              child: const Icon(Icons.no_photography_rounded, color: Colors.black12, size: 48),
                             ),
                           ),
                   ),
@@ -891,16 +891,16 @@ class _MapScreenState extends State<MapScreen> {
               const SizedBox(height: 16),
               Text(
                 report.description,
-                style: const TextStyle(fontSize: 16, color: Colors.white70),
+                style: const TextStyle(fontSize: 16, color: Colors.black87),
               ),
               const SizedBox(height: 24),
               Row(
                 children: [
-                  const Icon(Icons.access_time, size: 16, color: Colors.white54),
+                  const Icon(Icons.access_time, size: 16, color: Colors.black38),
                   const SizedBox(width: 8),
                   Text(
                     'Reported at: ${report.timestamp.hour}:${report.timestamp.minute}',
-                    style: const TextStyle(color: Colors.white54),
+                    style: const TextStyle(color: Colors.black38),
                   ),
                 ],
               ),
