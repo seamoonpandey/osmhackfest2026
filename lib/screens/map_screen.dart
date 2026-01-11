@@ -402,7 +402,7 @@ class _MapScreenState extends State<MapScreen> {
                   const SizedBox(height: 16),
                   _buildSidebarFilter('Urgent Issues', AppTheme.highRisk, Severity.high),
                   _buildSidebarFilter('Repair Needed', AppTheme.mediumRisk, Severity.medium),
-                  _buildSidebarFilter('Stable Roads', AppTheme.lowRisk, Severity.low),
+                  _buildSidebarFilter('Minor Issues', AppTheme.lowRisk, Severity.low),
                 ],
               ),
             ),
@@ -512,25 +512,27 @@ class _MapScreenState extends State<MapScreen> {
                 padding: const EdgeInsets.all(1.5),
                 child: Stack(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(size),
-                      child: report.imageUrl != null
-                          ? (report.imageUrl!.startsWith('http')
-                              ? Image.network(
-                                  report.imageUrl!,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Center(child: CircularProgressIndicator(strokeWidth: 2, color: color.withOpacity(0.5)));
-                                  },
-                                  errorBuilder: (c, e, s) => Icon(Icons.broken_image_rounded, color: color, size: 20),
-                                )
-                              : Image.file(
-                                  File(report.imageUrl!),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (c, e, s) => Icon(Icons.no_photography_rounded, color: color, size: 20),
-                                ))
-                          : Icon(Icons.warning_amber_rounded, color: color, size: 22),
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(size),
+                        child: report.imageUrl != null
+                            ? (report.imageUrl!.startsWith('http')
+                                ? Image.network(
+                                    report.imageUrl!,
+                                    fit: BoxFit.cover,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Center(child: CircularProgressIndicator(strokeWidth: 2, color: color.withOpacity(0.5)));
+                                    },
+                                    errorBuilder: (c, e, s) => Icon(Icons.broken_image_rounded, color: color, size: 20),
+                                  )
+                                : Image.file(
+                                    File(report.imageUrl!),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, e, s) => Icon(Icons.no_photography_rounded, color: color, size: 20),
+                                  ))
+                            : Icon(Icons.warning_amber_rounded, color: color, size: 22),
+                      ),
                     ),
                     if (!report.isSynced)
                       Positioned(
@@ -580,7 +582,7 @@ class _MapScreenState extends State<MapScreen> {
             const SizedBox(height: 8),
             _buildLegendItem('Repair', AppTheme.mediumRisk, Severity.medium),
             const SizedBox(height: 8),
-            _buildLegendItem('Stable', AppTheme.lowRisk, Severity.low),
+            _buildLegendItem('Minor', AppTheme.lowRisk, Severity.low),
           ],
         ),
       ),
