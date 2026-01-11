@@ -22,6 +22,7 @@ class _ReportScreenState extends State<ReportScreen> {
   Position? _currentPosition;
   CameraController? _cameraController;
   XFile? _capturedImage;
+  String? _roadName;
   bool _isLocating = false;
   bool _isSubmitting = false;
 
@@ -40,9 +41,17 @@ class _ReportScreenState extends State<ReportScreen> {
         permission = await Geolocator.requestPermission();
       }
       final position = await Geolocator.getCurrentPosition();
+      
+      // Look up the road name
+      String? road;
+      try {
+        road = await apiClient.reverseGeocode(position.latitude, position.longitude);
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _currentPosition = position;
+          _roadName = road;
           _isLocating = false;
         });
       }
@@ -85,6 +94,7 @@ class _ReportScreenState extends State<ReportScreen> {
     final report = RoadReport(
       id: const Uuid().v4(),
       location: LatLng(_currentPosition?.latitude ?? 0, _currentPosition?.longitude ?? 0),
+      roadName: _roadName,
       severity: _selectedSeverity,
       description: _descriptionController.text,
       timestamp: DateTime.now(),
@@ -183,8 +193,8 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _currentPosition != null ? 'GPS Ready' : 'Locating...',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  _roadName ?? (_currentPosition != null ? 'Finding road...' : 'Locating...'),
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -235,6 +245,16 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
                 const SizedBox(height: 20),
               ] else ...[
+                Text(
+                  _roadName?.toUpperCase() ?? 'IDENTIFYING ROAD...',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    color: AppTheme.accentCyan,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     _buildSeverityIcon(Severity.low, 'Minor', AppTheme.lowRisk),

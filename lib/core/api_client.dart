@@ -96,6 +96,30 @@ class ApiClient {
     }
   }
 
+  Future<String?> reverseGeocode(double lat, double lng) async {
+    try {
+      final response = await Dio().get(
+        'https://nominatim.openstreetmap.org/reverse',
+        queryParameters: {
+          'lat': lat,
+          'lon': lng,
+          'format': 'json',
+        },
+        options: Options(
+          headers: {'User-Agent': 'RoadQualityApp/1.0'},
+        ),
+      );
+      final data = response.data;
+      final address = data['address'];
+      if (address != null) {
+        return address['road'] ?? address['street'] ?? address['suburb'] ?? address['city'];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> searchPlaces(String query) async {
     if (query.isEmpty) return [];
     try {
