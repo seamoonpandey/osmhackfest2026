@@ -98,6 +98,7 @@ class _MapScreenState extends State<MapScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   DateTime? _lastSearchTime;
   Set<Severity> _visibleSeverities = Set.from(Severity.values);
+  bool _showUserLocation = true;
 
   @override
   void initState() {
@@ -249,7 +250,12 @@ class _MapScreenState extends State<MapScreen> {
                   });
                 },
               )
-            : null,
+            : Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu_rounded),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
         actions: [
           if (!_isSearchingUI)
             IconButton(
@@ -302,7 +308,7 @@ class _MapScreenState extends State<MapScreen> {
                           child: _buildMarker(report),
                         ),
                       )),
-                  if (_currentPosition != null)
+                  if (_currentPosition != null && _showUserLocation)
                     Marker(
                       point: _currentPosition!,
                       width: 60,
@@ -315,7 +321,6 @@ class _MapScreenState extends State<MapScreen> {
           ),
           _buildSearchOverlay(),
           if (_isLoading) const Center(child: CircularProgressIndicator()),
-          _buildLegend(),
           Positioned(
             right: 16,
             bottom: 120,
@@ -329,6 +334,127 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
       floatingActionButton: _buildFAB(),
+      drawer: _buildSidebar(),
+    );
+  }
+
+  Widget _buildSidebar() {
+    return Drawer(
+      backgroundColor: AppTheme.surfaceBg,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue.withOpacity(0.1),
+                border: const Border(bottom: BorderSide(color: Colors.white10)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('MAP SETTINGS',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                          color: AppTheme.primaryBlue,
+                          letterSpacing: 1.5)),
+                  const Text('Customize your monitor view',
+                      style: TextStyle(color: Colors.white38, fontSize: 12)),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const Text('VISIBLE LAYERS',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white38,
+                          letterSpacing: 1.5)),
+                  const SizedBox(height: 16),
+                  _buildSidebarToggle(
+                    'My Location',
+                    Icons.my_location_rounded,
+                    _showUserLocation,
+                    (val) => setState(() => _showUserLocation = val),
+                  ),
+                  const SizedBox(height: 32),
+                  const Text('ROAD FILTERS',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white38,
+                          letterSpacing: 1.5)),
+                  const SizedBox(height: 16),
+                  _buildSidebarFilter('Urgent Issues', AppTheme.highRisk, Severity.high),
+                  _buildSidebarFilter('Repair Needed', AppTheme.mediumRisk, Severity.medium),
+                  _buildSidebarFilter('Stable Roads', AppTheme.lowRisk, Severity.low),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSidebarToggle(String label, IconData icon, bool value, Function(bool) onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.primaryBlue, size: 20),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const Spacer(),
+          Switch.adaptive(
+            value: value,
+            activeColor: AppTheme.primaryBlue,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarFilter(String label, Color color, Severity severity) {
+    final bool isVisible = _visibleSeverities.contains(severity);
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: isVisible ? color : color.withOpacity(0.2),
+          shape: BoxShape.circle,
+        ),
+      ),
+      title: Text(label,
+          style: TextStyle(
+              color: isVisible ? Colors.white : Colors.white38,
+              fontWeight: isVisible ? FontWeight.bold : FontWeight.normal)),
+      trailing: Checkbox(
+        value: isVisible,
+        onChanged: (val) {
+          setState(() {
+            if (val == true) {
+              _visibleSeverities.add(severity);
+            } else {
+              _visibleSeverities.remove(severity);
+            }
+          });
+        },
+        activeColor: color,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
     );
   }
 
