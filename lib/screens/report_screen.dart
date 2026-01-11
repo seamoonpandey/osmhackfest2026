@@ -26,6 +26,7 @@ class _ReportScreenState extends State<ReportScreen> {
   CameraController? _cameraController;
   XFile? _capturedImage;
   String? _roadName;
+  List<String> _nearbyRoads = [];
   bool _isLocating = false;
   bool _isSubmitting = false;
 
@@ -46,16 +47,24 @@ class _ReportScreenState extends State<ReportScreen> {
       }
       final position = await Geolocator.getCurrentPosition();
       
-      // Look up the road name
+      // Look up the road name and nearby roads
       String? road;
+      List<String> roads = [];
       try {
         road = await apiClient.reverseGeocode(position.latitude, position.longitude);
+        roads = await apiClient.getNearbyRoads(position.latitude, position.longitude);
+        
+        // Ensure the default road is in the list
+        if (road != null && !roads.contains(road)) {
+          roads.insert(0, road);
+        }
       } catch (_) {}
 
       if (mounted) {
         setState(() {
           _currentPosition = position;
-          _roadName = road;
+          _roadName = road ?? (roads.isNotEmpty ? roads.first : null);
+          _nearbyRoads = roads;
           _isLocating = false;
         });
       }
@@ -87,6 +96,76 @@ class _ReportScreenState extends State<ReportScreen> {
       final image = await _cameraController!.takePicture();
       setState(() => _capturedImage = image);
     } catch (e) {}
+  }
+
+  void _showRoadPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'SELECT NEARBY ROAD',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: Colors.white38,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(bottom: 32),
+                itemCount: _nearbyRoads.length,
+                itemBuilder: (context, index) {
+                  final road = _nearbyRoads[index];
+                  bool isSelected = road == _roadName;
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 4),
+                    leading: Icon(
+                      Icons.add_location,
+                      color: isSelected ? AppTheme.accentCyan : Colors.white24,
+                      size: 20,
+                    ),
+                    title: Text(
+                      road,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.white70,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.accentCyan, size: 20) : null,
+                    onTap: () {
+                      setState(() => _roadName = road);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _submitReport() async {
@@ -260,15 +339,36 @@ class _ReportScreenState extends State<ReportScreen> {
               ] else ...[
                 Row(
                   children: [
-                    Text(
-                      _roadName?.toUpperCase() ?? 'DETERMINING LOCATION...',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                        color: AppTheme.accentCyan,
-                        letterSpacing: 1,
+                    Expanded(
+                      child: Text(
+                        _roadName?.toUpperCase() ?? 'DETERMINING LOCATION...',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          color: AppTheme.accentCyan,
+                          letterSpacing: 1,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (_nearbyRoads.length > 1)
+                      TextButton.icon(
+                        onPressed: _showRoadPicker,
+                        icon: const Icon(Icons.edit_location_alt, size: 14, color: AppTheme.accentCyan),
+                        label: Text(
+                          'CHANGE',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            color: AppTheme.accentCyan,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
                     if (_isLocating && _roadName == null) ...[
                       const SizedBox(width: 8),
                       const SizedBox(

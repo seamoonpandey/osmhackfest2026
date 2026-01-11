@@ -148,6 +148,31 @@ class ApiClient {
     }
   }
 
+  Future<List<String>> getNearbyRoads(double lat, double lng) async {
+    try {
+      final query = '[out:json];way(around:30,$lat,$lng)[highway];out tags;';
+      final response = await Dio().get(
+        'https://overpass-api.de/api/interpreter',
+        queryParameters: {'data': query},
+      );
+      
+      final List elements = response.data['elements'];
+      final Set<String> roads = {};
+      
+      for (var element in elements) {
+        final tags = element['tags'];
+        if (tags != null && tags['name'] != null) {
+          roads.add(tags['name']);
+        }
+      }
+      
+      return roads.toList();
+    } catch (e) {
+      print('Overpass error: $e');
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> searchPlaces(String query) async {
     if (query.isEmpty) return [];
     try {
