@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../core/api_client.dart';
@@ -14,28 +16,129 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
+class _UserLocationMarker extends StatefulWidget {
+  const _UserLocationMarker();
+
+  @override
+  State<_UserLocationMarker> createState() => _UserLocationMarkerState();
+}
+
+class _UserLocationMarkerState extends State<_UserLocationMarker>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 40 * _controller.value,
+              height: 40 * _controller.value,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryBlue.withOpacity(1 - _controller.value),
+              ),
+            ),
+            Container(
+              width: 14,
+              height: 14,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primaryBlue,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
   List<RoadReport> _reports = [];
   List<RoadSegment> _segments = [];
+  LatLng? _currentPosition;
   bool _isLoading = true;
-  bool _showSearchResults = false;
-
-  final List<Map<String, dynamic>> _mockSearchResults = [
-    {'name': 'Durbar Marg', 'location': const LatLng(27.7120, 85.3240)},
-    {'name': 'Lazimpat Road', 'location': const LatLng(27.7185, 85.3200)},
-    {'name': 'Balaju Bypass', 'location': const LatLng(27.7300, 85.3000)},
-  ];
+  bool _isSearching = false;
+  bool _isSearchingUI = false;
+  List<Map<String, dynamic>> _searchResults = [];
+  DateTime? _lastSearchTime;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _startLocationListening();
+  }
+
+  void _startLocationListening() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+
+    Geolocator.getPositionStream().listen((Position position) {
+      if (mounted) {
+        setState(() {
+          _currentPosition = LatLng(position.latitude, position.longitude);
+        });
+      }
+    });
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    
+    // Get current position for initial view
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
+      );
+      if (mounted) {
+        _mapController.move(LatLng(position.latitude, position.longitude), 14.0);
+      }
+    } catch (e) {
+      // Fallback to default if location fails
+    }
+
     final reports = await apiClient.getReports();
     final segments = await apiClient.getRoadSegments();
     if (mounted) {
@@ -47,19 +150,58 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _handleSearch(String query) {
-    if (query.isNotEmpty) {
-      setState(() => _showSearchResults = true);
-    } else {
-      setState(() => _showSearchResults = false);
+  void _handleSearch(String query) async {
+    if (query.length < 3) {
+      setState(() {
+        _searchResults = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    // Debouncing to avoid hitting API too hard
+    final now = DateTime.now();
+    _lastSearchTime = now;
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (_lastSearchTime != now) return;
+
+    final results = await apiClient.searchPlaces(query);
+    
+    if (mounted) {
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
+    }
+  }
+
+  Future<void> _goToCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      
+      final position = await Geolocator.getCurrentPosition();
+      _mapController.move(LatLng(position.latitude, position.longitude), 16.0);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error getting location: $e')),
+        );
+      }
     }
   }
 
   void _moveToLocation(LatLng location) {
     _mapController.move(location, 16.0);
     setState(() {
-      _showSearchResults = false;
+      _isSearchingUI = false;
       _searchController.clear();
+      _searchResults = [];
       FocusScope.of(context).unfocus();
     });
   }
@@ -79,13 +221,58 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('ROAD MONITOR', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 2)),
+        title: _isSearchingUI
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                onChanged: _handleSearch,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: const InputDecoration(
+                  hintText: 'Search locations...',
+                  hintStyle: TextStyle(color: Colors.white38),
+                  border: InputBorder.none,
+                ),
+              )
+            : Text('ROAD MONITOR',
+                style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 2)),
+        leading: _isSearchingUI
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () {
+                  setState(() {
+                    _isSearchingUI = false;
+                    _searchController.clear();
+                    _searchResults = [];
+                  });
+                },
+              )
+            : null,
         actions: [
+          if (!_isSearchingUI)
+            IconButton(
+              icon: const Icon(Icons.search_rounded),
+              onPressed: () => setState(() => _isSearchingUI = true),
+            ),
+          if (_isSearchingUI && _searchController.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () {
+                _searchController.clear();
+                _searchResults = [];
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadData,
           ),
         ],
+        bottom: _isSearchingUI && _isSearching
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(2),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            : null,
       ),
       body: Stack(
         children: [
@@ -99,15 +286,6 @@ class _MapScreenState extends State<MapScreen> {
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.osmapp',
-                tileBuilder: (context, widget, chunk) => ColorFiltered(
-                  colorFilter: const ColorFilter.matrix([
-                    -0.2126, -0.7152, -0.0722, 0, 255,
-                    -0.2126, -0.7152, -0.0722, 0, 255,
-                    -0.2126, -0.7152, -0.0722, 0, 255,
-                    0, 0, 0, 1, 0,
-                  ]),
-                  child: widget,
-                ),
               ),
               PolylineLayer(
                 polylines: [
@@ -132,21 +310,39 @@ class _MapScreenState extends State<MapScreen> {
                 ],
               ),
               MarkerLayer(
-                markers: _reports.map((report) => Marker(
-                      point: report.location,
+                markers: [
+                  ..._reports.map((report) => Marker(
+                        point: report.location,
+                        width: 60,
+                        height: 60,
+                        child: GestureDetector(
+                          onTap: () => _showReportDetails(report),
+                          child: _buildMarker(report),
+                        ),
+                      )),
+                  if (_currentPosition != null)
+                    Marker(
+                      point: _currentPosition!,
                       width: 60,
                       height: 60,
-                      child: GestureDetector(
-                        onTap: () => _showReportDetails(report),
-                        child: _buildMarker(report),
-                      ),
-                    )).toList(),
+                      child: const _UserLocationMarker(),
+                    ),
+                ],
               ),
             ],
           ),
           _buildSearchOverlay(),
           if (_isLoading) const Center(child: CircularProgressIndicator()),
           _buildLegend(),
+          Positioned(
+            right: 16,
+            bottom: 120,
+            child: FloatingActionButton.small(
+              onPressed: _goToCurrentLocation,
+              backgroundColor: AppTheme.surfaceBg.withOpacity(0.8),
+              child: const Icon(Icons.my_location_rounded, color: Colors.white),
+            ),
+          ),
         ],
       ),
       floatingActionButton: _buildFAB(),
@@ -173,57 +369,51 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildSearchOverlay() {
+    if (!_isSearchingUI || (_searchResults.isEmpty && !_isSearching && _searchController.text.length < 3)) {
+      return const SizedBox.shrink();
+    }
+
     return Positioned(
-      top: 20,
-      left: 16,
-      right: 16,
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceBg.withOpacity(0.8),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: _handleSearch,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    hintText: 'Search for roads or areas...',
-                    hintStyle: TextStyle(color: Colors.white38),
-                    prefixIcon: Icon(Icons.search_rounded, color: AppTheme.primaryBlue),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      top: 0,
+      left: 0,
+      right: 0,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 400),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceBg.withOpacity(0.9),
+              border: const Border(bottom: BorderSide(color: Colors.white10)),
+            ),
+            child: _searchResults.isEmpty && !_isSearching
+                ? const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
+                      child: Text('No places found', style: TextStyle(color: Colors.white54)),
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: _searchResults.length,
+                    separatorBuilder: (context, index) => const Divider(color: Colors.white10, height: 1),
+                    itemBuilder: (context, index) {
+                      final res = _searchResults[index];
+                      return ListTile(
+                        title: Text(
+                          res['name'], 
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)
+                        ),
+                        leading: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
+                        onTap: () => _moveToLocation(LatLng(res['lat'], res['lng'])),
+                      );
+                    },
                   ),
-                ),
-              ),
-            ),
           ),
-          if (_showSearchResults)
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceBg.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Column(
-                children: _mockSearchResults
-                    .where((res) => res['name'].toString().toLowerCase().contains(_searchController.text.toLowerCase()))
-                    .map((res) => ListTile(
-                          title: Text(res['name'], style: const TextStyle(color: Colors.white)),
-                          leading: const Icon(Icons.place_rounded, color: Colors.white54),
-                          onTap: () => _moveToLocation(res['location']),
-                        ))
-                    .toList(),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -276,7 +466,6 @@ class _MapScreenState extends State<MapScreen> {
         label: const Text('REPORT ISSUE', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
         icon: const Icon(Icons.add_a_photo_rounded),
         elevation: 8,
-        shadowColor: AppTheme.primaryBlue.withOpacity(0.5),
       ),
     );
   }
