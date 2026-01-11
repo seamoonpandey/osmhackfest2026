@@ -4,15 +4,10 @@ import 'network/api_config.dart';
 import 'network/mock_interceptor.dart';
 import '../models/models.dart';
 import 'local_storage.dart';
-import 'dart:typed_data';
 import 'dart:io'; // Required for File operations
-
-import 'dart:convert';
 
 class ApiClient {
   late final Dio _dio;
-  final String _bytezKey = "4964e8ff82c4e31c064f4ee77db4fce4";
-  final String _modelId = "keremberke/yolov8m-pothole-segmentation";
 
   ApiClient() {
     _dio = Dio(
@@ -71,65 +66,16 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, String?>> analyzePothole(String imagePath) async {
-    try {
-      final bytes = await File(imagePath).readAsBytes();
-      final base64Image = base64Encode(bytes);
-      
-      // Correct Bytez v2 endpoint structure
-      final response = await _dio.post(
-        'https://api.bytez.com/models/v2/$_modelId',
-        data: {
-          'input': 'data:image/jpeg;base64,$base64Image',
-        },
-        options: Options(
-          headers: {
-            'Authorization': _bytezKey,
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      if (response.data != null && response.data['output'] != null) {
-        final output = response.data['output'];
-        String analysis = "Road damage analysis complete.";
-        String? imageUrl;
-        
-        if (output is String && (output.startsWith('http') || output.startsWith('data:image'))) {
-          imageUrl = output;
-        } else if (output is List) {
-          analysis = "Detected ${output.length} potential issues. High importance recommended.";
-        }
-        
-        return {
-          'analysis': analysis,
-          'imageUrl': imageUrl,
-        };
-      }
-    } catch (e) {
-      print('Analysis error: $e');
-    }
-    return {};
-  }
 
   Future<void> syncUnsyncedReports() async {
     final unsynced = LocalStorage.getUnsyncedReports();
     for (var report in unsynced) {
       try {
         String? updatedRoadName = report.roadName;
-        String? aiAnalysis = report.aiAnalysis;
-        String? aiImageUrl = report.aiImageUrl;
 
         // 1. Background Road Discovery (if was offline)
         if (updatedRoadName == null || updatedRoadName.isEmpty) {
           updatedRoadName = await reverseGeocode(report.lat, report.lng);
-        }
-
-        // 2. Background AI Audit (Bytez Segmentation)
-        if (aiAnalysis == null && report.imageUrl != null) {
-          final result = await analyzePothole(report.imageUrl!);
-          aiAnalysis = result['analysis'];
-          aiImageUrl = result['imageUrl'];
         }
 
         // Create updated object
@@ -140,12 +86,11 @@ class ApiClient {
           osmNodeId: report.osmNodeId,
           roadName: updatedRoadName,
           severity: report.severity,
+          issueType: report.issueType,
           description: report.description,
           imageUrl: report.imageUrl,
           timestamp: report.timestamp,
           isSynced: false,
-          aiAnalysis: aiAnalysis,
-          aiImageUrl: aiImageUrl,
         );
 
         // Update locally before pushing

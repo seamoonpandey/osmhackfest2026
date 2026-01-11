@@ -23,19 +23,18 @@ class RoadReportAdapter extends TypeAdapter<RoadReport> {
       osmNodeId: fields[3] as String?,
       roadName: fields[4] as String?,
       severity: fields[5] as Severity,
+      issueType: fields[10] as String?,
       description: fields[6] as String,
       imageUrl: fields[7] as String?,
       timestamp: fields[8] as DateTime,
       isSynced: fields[9] as bool,
-      aiAnalysis: fields[10] as String?,
-      aiImageUrl: fields[11] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, RoadReport obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -57,9 +56,7 @@ class RoadReportAdapter extends TypeAdapter<RoadReport> {
       ..writeByte(9)
       ..write(obj.isSynced)
       ..writeByte(10)
-      ..write(obj.aiAnalysis)
-      ..writeByte(11)
-      ..write(obj.aiImageUrl);
+      ..write(obj.issueType);
   }
 
   @override
@@ -81,27 +78,37 @@ class SeverityAdapter extends TypeAdapter<Severity> {
   Severity read(BinaryReader reader) {
     switch (reader.readByte()) {
       case 0:
-        return Severity.low;
+        return Severity.level1;
       case 1:
-        return Severity.medium;
+        return Severity.level2;
       case 2:
-        return Severity.high;
+        return Severity.level3;
+      case 3:
+        return Severity.level4;
+      case 4:
+        return Severity.level5;
       default:
-        return Severity.low;
+        return Severity.level1;
     }
   }
 
   @override
   void write(BinaryWriter writer, Severity obj) {
     switch (obj) {
-      case Severity.low:
+      case Severity.level1:
         writer.writeByte(0);
         break;
-      case Severity.medium:
+      case Severity.level2:
         writer.writeByte(1);
         break;
-      case Severity.high:
+      case Severity.level3:
         writer.writeByte(2);
+        break;
+      case Severity.level4:
+        writer.writeByte(3);
+        break;
+      case Severity.level5:
+        writer.writeByte(4);
         break;
     }
   }

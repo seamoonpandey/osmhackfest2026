@@ -8,7 +8,15 @@ class LocalStorage {
     await Hive.initFlutter();
     Hive.registerAdapter(SeverityAdapter());
     Hive.registerAdapter(RoadReportAdapter());
-    await Hive.openBox<RoadReport>(reportsBoxName);
+    try {
+      await Hive.openBox<RoadReport>(reportsBoxName);
+    } catch (e) {
+      // If schema mismatch is unrecoverable, try to delete and recreate
+      try {
+        await Hive.deleteBoxFromDisk(reportsBoxName);
+      } catch (_) {} 
+      await Hive.openBox<RoadReport>(reportsBoxName);
+    }
   }
 
   static Box<RoadReport> get reportsBox => Hive.box<RoadReport>(reportsBoxName);
@@ -35,6 +43,7 @@ class LocalStorage {
         osmNodeId: report.osmNodeId,
         roadName: report.roadName,
         severity: report.severity,
+        issueType: report.issueType,
         description: report.description,
         imageUrl: report.imageUrl,
         timestamp: report.timestamp,

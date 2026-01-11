@@ -212,12 +212,11 @@ class _MapScreenState extends State<MapScreen> {
 
   Color _getSeverityColor(Severity severity) {
     switch (severity) {
-      case Severity.high:
-        return AppTheme.highRisk;
-      case Severity.medium:
-        return AppTheme.mediumRisk;
-      case Severity.low:
-        return AppTheme.lowRisk;
+      case Severity.level1: return const Color(0xFF4CAF50);
+      case Severity.level2: return const Color(0xFF8BC34A);
+      case Severity.level3: return const Color(0xFFFFC107);
+      case Severity.level4: return const Color(0xFFFF9800);
+      case Severity.level5: return const Color(0xFFF44336);
     }
   }
 
@@ -401,36 +400,31 @@ class _MapScreenState extends State<MapScreen> {
                           color: Colors.white38,
                           letterSpacing: 1.5)),
                   const SizedBox(height: 16),
-                  _buildSidebarFilter('Urgent Issues', AppTheme.highRisk, Severity.high),
-                  _buildSidebarFilter('Repair Needed', AppTheme.mediumRisk, Severity.medium),
-                  _buildSidebarFilter('Minor Issues', AppTheme.lowRisk, Severity.low),
+                  _buildSidebarFilter('Level 5 (Danger)', const Color(0xFFF44336), Severity.level5),
+                  _buildSidebarFilter('Level 4 (High)', const Color(0xFFFF9800), Severity.level4),
+                  _buildSidebarFilter('Level 3 (Med)', const Color(0xFFFFC107), Severity.level3),
+                  _buildSidebarFilter('Level 2 (Low)', const Color(0xFF8BC34A), Severity.level2),
+                  _buildSidebarFilter('Level 1 (Safe)', const Color(0xFF4CAF50), Severity.level1),
                   const SizedBox(height: 32),
-                  const Text('INTELLIGENCE',
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white38,
-                          letterSpacing: 1.5)),
-                  const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () async {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Starting AI Audit & Cloud Sync...')),
+                        const SnackBar(content: Text('Starting Cloud Sync...')),
                       );
                       await apiClient.syncUnsyncedReports();
                       await _loadData();
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('AI Audit & Sync Complete!')),
+                          const SnackBar(content: Text('Sync Complete!')),
                         );
                       }
                     },
-                    icon: const Icon(Icons.auto_awesome, size: 18),
-                    label: const Text('SYNC & AI AUDIT'),
+                    icon: const Icon(Icons.sync_rounded, size: 18),
+                    label: const Text('SYNC DATA'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentCyan.withOpacity(0.2),
-                      foregroundColor: AppTheme.accentCyan,
-                      side: const BorderSide(color: AppTheme.accentCyan),
+                      backgroundColor: AppTheme.primaryBlue.withOpacity(0.2),
+                      foregroundColor: AppTheme.primaryBlue,
+                      side: const BorderSide(color: AppTheme.primaryBlue),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
@@ -579,22 +573,6 @@ class _MapScreenState extends State<MapScreen> {
                           child: const Icon(Icons.sync_rounded, color: AppTheme.primaryBlue, size: 10),
                         ),
                       ),
-                    if (report.aiAnalysis != null)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: AppTheme.accentCyan,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(color: Colors.black26, blurRadius: 4),
-                            ],
-                          ),
-                          child: const Icon(Icons.check_rounded, color: Colors.white, size: 8),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -626,11 +604,15 @@ class _MapScreenState extends State<MapScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLegendItem('Urgent', AppTheme.highRisk, Severity.high),
+            _buildLegendItem('Danger', const Color(0xFFF44336), Severity.level5),
             const SizedBox(height: 8),
-            _buildLegendItem('Repair', AppTheme.mediumRisk, Severity.medium),
+            _buildLegendItem('High', const Color(0xFFFF9800), Severity.level4),
             const SizedBox(height: 8),
-            _buildLegendItem('Minor', AppTheme.lowRisk, Severity.low),
+            _buildLegendItem('Med', const Color(0xFFFFC107), Severity.level3),
+            const SizedBox(height: 8),
+            _buildLegendItem('Low', const Color(0xFF8BC34A), Severity.level2),
+            const SizedBox(height: 8),
+            _buildLegendItem('Safe', const Color(0xFF4CAF50), Severity.level1),
           ],
         ),
       ),
@@ -823,51 +805,52 @@ class _MapScreenState extends State<MapScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                  child: Text(
-                    report.roadName ?? 'Locating Road...',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _getSeverityColor(report.severity).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _getSeverityColor(report.severity).withOpacity(0.5)),
-                      ),
-                      child: Text(
-                        report.severity.name.toUpperCase(),
-                        style: TextStyle(
-                          color: _getSeverityColor(report.severity),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          report.displayName,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ),
-                    if (!report.isSynced && report.aiAnalysis == null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          'PENDING AI AUDIT',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: AppTheme.accentCyan.withOpacity(0.7),
+                        Text(
+                          (report.issueType ?? 'Other').toUpperCase(),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                            color: AppTheme.accentCyan,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getSeverityColor(report.severity).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _getSeverityColor(report.severity).withOpacity(0.5)),
+                        ),
+                        child: Text(
+                          'LEVEL ${report.severity.index + 1}',
+                          style: TextStyle(
+                            color: _getSeverityColor(report.severity),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -910,93 +893,6 @@ class _MapScreenState extends State<MapScreen> {
                 report.description,
                 style: const TextStyle(fontSize: 16, color: Colors.white70),
               ),
-              if (report.aiAnalysis != null) ...[
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.primaryBlue.withOpacity(0.15),
-                        AppTheme.accentCyan.withOpacity(0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.accentCyan.withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.auto_awesome, color: AppTheme.accentCyan, size: 16),
-                          const SizedBox(width: 8),
-                          Text(
-                            'SYSTEM AUDIT',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: AppTheme.accentCyan,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        report.aiAnalysis!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                      if (report.aiImageUrl != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          'DAMAGE SEGMENTATION',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: AppTheme.accentCyan,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: AspectRatio(
-                            aspectRatio: 16 / 9,
-                            child: report.aiImageUrl!.startsWith('data:image')
-                                ? Image.memory(
-                                    base64Decode(report.aiImageUrl!.split(',').last),
-                                    fit: BoxFit.cover,
-                                  )
-                                : Image.network(
-                                    report.aiImageUrl!,
-                                    fit: BoxFit.cover,
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Center(
-                                        child: CircularProgressIndicator(
-                                          value: loadingProgress.expectedTotalBytes != null
-                                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                              : null,
-                                        ),
-                                      );
-                                    },
-                                    errorBuilder: (context, error, stackTrace) => Container(
-                                      color: AppTheme.surfaceElevated,
-                                      child: const Icon(Icons.broken_image_rounded, color: Colors.white24, size: 48),
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 24),
               Row(
                 children: [

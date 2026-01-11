@@ -5,9 +5,11 @@ part 'models.g.dart';
 
 @HiveType(typeId: 0)
 enum Severity { 
-  @HiveField(0) low, 
-  @HiveField(1) medium, 
-  @HiveField(2) high 
+  @HiveField(0) level1, // Very Low
+  @HiveField(1) level2, // Low
+  @HiveField(2) level3, // Medium
+  @HiveField(3) level4, // High
+  @HiveField(4) level5  // Critical
 }
 
 @HiveType(typeId: 1)
@@ -32,11 +34,9 @@ class RoadReport {
   final DateTime timestamp;
   @HiveField(9)
   final bool isSynced;
-
   @HiveField(10)
-  final String? aiAnalysis;
-  @HiveField(11)
-  final String? aiImageUrl;
+  final String? issueType;
+
 
   RoadReport({
     required this.id,
@@ -46,16 +46,23 @@ class RoadReport {
     this.osmNodeId,
     this.roadName,
     required this.severity,
+    this.issueType = 'Other',
     required this.description,
     this.imageUrl,
     required this.timestamp,
     this.isSynced = false,
-    this.aiAnalysis,
-    this.aiImageUrl,
   })  : this.lat = lat ?? location?.latitude ?? 0.0,
         this.lng = lng ?? location?.longitude ?? 0.0;
 
   LatLng get location => LatLng(lat, lng);
+
+  String get displayName {
+    if (roadName != null && roadName!.isNotEmpty) return roadName!;
+    if (description.isNotEmpty) {
+      return description.length > 20 ? '${description.substring(0, 17)}...' : description;
+    }
+    return 'Unnamed Location';
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -65,12 +72,11 @@ class RoadReport {
       'osmNodeId': osmNodeId,
       'roadName': roadName,
       'severity': severity.index,
+      'issueType': issueType,
       'description': description,
       'imageUrl': imageUrl,
       'timestamp': timestamp.toIso8601String(),
       'isSynced': isSynced,
-      'aiAnalysis': aiAnalysis,
-      'aiImageUrl': aiImageUrl,
     };
   }
 
@@ -82,12 +88,11 @@ class RoadReport {
       osmNodeId: json['osmNodeId'],
       roadName: json['roadName'],
       severity: Severity.values[json['severity']],
+      issueType: json['issueType'] ?? 'Other',
       description: json['description'],
       imageUrl: json['imageUrl'],
       timestamp: DateTime.parse(json['timestamp']),
       isSynced: json['isSynced'] ?? true,
-      aiAnalysis: json['aiAnalysis'],
-      aiImageUrl: json['aiImageUrl'],
     );
   }
 }
@@ -108,8 +113,10 @@ class RoadSegment {
   });
 
   Severity get severity {
-    if (priorityScore >= 4.0) return Severity.high;
-    if (priorityScore >= 2.5) return Severity.medium;
-    return Severity.low;
+    if (priorityScore >= 4.5) return Severity.level5;
+    if (priorityScore >= 3.5) return Severity.level4;
+    if (priorityScore >= 2.5) return Severity.level3;
+    if (priorityScore >= 1.5) return Severity.level2;
+    return Severity.level1;
   }
 }

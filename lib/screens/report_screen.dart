@@ -19,40 +19,16 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   final _descriptionController = TextEditingController();
-  Severity _selectedSeverity = Severity.medium;
+  Severity _selectedSeverity = Severity.level3;
+  String _selectedIssueType = 'Pothole';
+  final List<String> _issueTypes = ['Pothole', 'Crack', 'Drainage', 'Faded Markings', 'Obstruction', 'Other'];
   Position? _currentPosition;
   CameraController? _cameraController;
   XFile? _capturedImage;
   String? _roadName;
-  String? _aiAnalysis;
-  String? _aiImageUrl;
   bool _isLocating = false;
   bool _isSubmitting = false;
-  bool _isAnalyzing = false;
 
-  Future<void> _runAIDiagnostic() async {
-    if (_capturedImage == null) return;
-    setState(() => _isAnalyzing = true);
-    
-    try {
-      final result = await apiClient.analyzePothole(_capturedImage!.path);
-      if (mounted) {
-        setState(() {
-          _aiAnalysis = result['analysis'];
-          _aiImageUrl = result['imageUrl'];
-          
-          // Collaborative AI: Suggest a severity based on analysis
-          if (_aiAnalysis?.contains('areas identified') ?? false) {
-            _selectedSeverity = Severity.high;
-          }
-          
-          _isAnalyzing = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isAnalyzing = false);
-    }
-  }
 
   @override
   void initState() {
@@ -119,16 +95,23 @@ class _ReportScreenState extends State<ReportScreen> {
       return;
     }
     setState(() => _isSubmitting = true);
+
+    // Final attempt to get road name if still null
+    if (_roadName == null && _currentPosition != null) {
+      try {
+        _roadName = await apiClient.reverseGeocode(_currentPosition!.latitude, _currentPosition!.longitude);
+      } catch (_) {}
+    }
+
     final report = RoadReport(
       id: const Uuid().v4(),
       location: LatLng(_currentPosition?.latitude ?? 0, _currentPosition?.longitude ?? 0),
       roadName: _roadName,
       severity: _selectedSeverity,
+      issueType: _selectedIssueType,
       description: _descriptionController.text,
       timestamp: DateTime.now(),
       imageUrl: _capturedImage?.path,
-      aiAnalysis: _aiAnalysis,
-      aiImageUrl: _aiImageUrl,
     );
     await apiClient.submitReport(report);
     if (mounted) {
@@ -223,7 +206,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _roadName ?? (_currentPosition != null ? 'Finding road...' : 'Locating...'),
+                  _roadName ?? (_isLocating ? 'Finding road...' : 'Road identity pending'),
                   style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -275,31 +258,93 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
                 const SizedBox(height: 20),
               ] else ...[
+                Row(
+                  children: [
+                    Text(
+                      _roadName?.toUpperCase() ?? 'DETERMINING LOCATION...',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: AppTheme.accentCyan,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    if (_isLocating && _roadName == null) ...[
+                      const SizedBox(width: 8),
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accentCyan),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Text(
-                  _roadName?.toUpperCase() ?? 'IDENTIFYING ROAD...',
+                  'ISSUE TYPE',
                   style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                    color: AppTheme.accentCyan,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    color: Colors.white38,
                     letterSpacing: 1,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _issueTypes.map((type) {
+                      bool isSelected = _selectedIssueType == type;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(type),
+                          selected: isSelected,
+                          onSelected: (val) => setState(() => _selectedIssueType = type),
+                          backgroundColor: Colors.white.withOpacity(0.05),
+                          selectedColor: AppTheme.primaryBlue,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white70,
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'SEVERITY SCALE (1-5)',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    color: Colors.white38,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
-                    _buildSeverityIcon(Severity.low, 'Minor', AppTheme.lowRisk),
-                    const SizedBox(width: 12),
-                    _buildSeverityIcon(Severity.medium, 'Repair', AppTheme.mediumRisk),
-                    const SizedBox(width: 12),
-                    _buildSeverityIcon(Severity.high, 'Urgent', AppTheme.highRisk),
+                    _buildSeverityIcon(Severity.level1, '1', const Color(0xFF4CAF50)),
+                    const SizedBox(width: 8),
+                    _buildSeverityIcon(Severity.level2, '2', const Color(0xFF8BC34A)),
+                    const SizedBox(width: 8),
+                    _buildSeverityIcon(Severity.level3, '3', const Color(0xFFFFC107)),
+                    const SizedBox(width: 8),
+                    _buildSeverityIcon(Severity.level4, '4', const Color(0xFFFF9800)),
+                    const SizedBox(width: 8),
+                    _buildSeverityIcon(Severity.level5, '5', const Color(0xFFF44336)),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 TextField(
                   controller: _descriptionController,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    hintText: 'Describe the issue...',
+                    hintText: 'Additional details...',
                     hintStyle: const TextStyle(color: Colors.white38),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.05),
@@ -310,48 +355,6 @@ class _ReportScreenState extends State<ReportScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (_aiAnalysis != null)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentCyan.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.accentCyan.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.auto_awesome, color: AppTheme.accentCyan, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            "System Review: $_aiAnalysis",
-                            style: const TextStyle(fontSize: 12, color: Colors.white70),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_capturedImage != null && _aiAnalysis == null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _isAnalyzing ? null : _runAIDiagnostic,
-                        icon: _isAnalyzing 
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.auto_awesome, size: 16),
-                        label: Text(_isAnalyzing ? 'ENGINE RUNNING...' : 'RUN SYSTEM AUDIT'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.accentCyan,
-                          side: const BorderSide(color: AppTheme.accentCyan),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
