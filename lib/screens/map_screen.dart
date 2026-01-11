@@ -297,17 +297,26 @@ class _MapScreenState extends State<MapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  ..._reports
-                      .where((r) => _visibleSeverities.contains(r.severity))
-                      .map((report) => Marker(
-                        point: report.location,
-                        width: 60,
-                        height: 60,
-                        child: GestureDetector(
-                          onTap: () => _showReportDetails(report),
-                          child: _buildMarker(report),
-                        ),
-                      )),
+                      .map((report) {
+                        final isVisible = _visibleSeverities.contains(report.severity);
+                        return Marker(
+                          point: report.location,
+                          width: 60,
+                          height: 60,
+                          child: AnimatedOpacity(
+                            opacity: isVisible ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            child: IgnorePointer(
+                              ignoring: !isVisible,
+                              child: GestureDetector(
+                                onTap: () => _showReportDetails(report),
+                                child: _buildMarker(report),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
                   if (_currentPosition != null && _showUserLocation)
                     Marker(
                       point: _currentPosition!,
@@ -562,52 +571,66 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildSearchOverlay() {
-    if (!_isSearchingUI || (_searchResults.isEmpty && !_isSearching && _searchController.text.length < 3)) {
-      return const SizedBox.shrink();
-    }
-
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: ClipRRect(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            constraints: const BoxConstraints(maxHeight: 400),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceBg.withOpacity(0.9),
-              border: const Border(bottom: BorderSide(color: Colors.white10)),
-            ),
-            child: _searchResults.isEmpty && !_isSearching
-                ? const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Center(
-                      child: Text('No places found', style: TextStyle(color: Colors.white54)),
-                    ),
-                  )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: _searchResults.length,
-                    separatorBuilder: (context, index) => const Divider(color: Colors.white10, height: 1),
-                    itemBuilder: (context, index) {
-                      final res = _searchResults[index];
-                      return ListTile(
-                        title: Text(
-                          res['name'], 
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)
-                        ),
-                        leading: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
-                        onTap: () => _moveToLocation(LatLng(res['lat'], res['lng'])),
-                      );
-                    },
-                  ),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, -0.1),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
           ),
-        ),
-      ),
+        );
+      },
+      child: (!_isSearchingUI || (_searchResults.isEmpty && !_isSearching && _searchController.text.length < 3))
+          ? const SizedBox.shrink(key: ValueKey('empty'))
+          : Positioned(
+              key: const ValueKey('search_results'),
+              top: 0,
+              left: 0,
+              right: 0,
+              child: ClipRRect(
+                child: ui.BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    constraints: const BoxConstraints(maxHeight: 400),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceBg.withOpacity(0.9),
+                      border: const Border(bottom: BorderSide(color: Colors.white10)),
+                    ),
+                    child: _searchResults.isEmpty && !_isSearching
+                        ? const Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Center(
+                              child: Text('No places found', style: TextStyle(color: Colors.white54)),
+                            ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            padding: EdgeInsets.zero,
+                            itemCount: _searchResults.length,
+                            separatorBuilder: (context, index) => const Divider(color: Colors.white10, height: 1),
+                            itemBuilder: (context, index) {
+                              final res = _searchResults[index];
+                              return ListTile(
+                                title: Text(
+                                  res['name'], 
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)
+                                ),
+                                leading: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
+                                onTap: () => _moveToLocation(LatLng(res['lat'], res['lng'])),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 
