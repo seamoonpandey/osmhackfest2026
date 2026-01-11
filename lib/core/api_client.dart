@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'network/api_config.dart';
 import 'network/mock_interceptor.dart';
 import '../models/models.dart';
+import 'local_storage.dart';
 
 class ApiClient {
   late final Dio _dio;
@@ -21,20 +22,58 @@ class ApiClient {
   }
 
   Future<List<RoadReport>> getReports() async {
+    // 1. Load local reports first
+    final localReports = LocalStorage.getAllReports();
+    
     try {
+      // 2. Try to get remote reports
       final response = await _dio.get('/reports');
       final List data = response.data;
-      return data.map((json) => RoadReport.fromJson(json)).toList();
+      final remoteReports = data.map((json) => RoadReport.fromJson(json)).toList();
+      
+      // 3. Update local storage with remote data (merging)
+      for (var remote in remoteReports) {
+         // Only save remote if it doesn't exist locally as unsynced
+         final local = LocalStorage.reportsBox.get(remote.id);
+         if (local == null || local.isSynced) {
+           await LocalStorage.saveReport(remote);
+         }
+      }
+      
+      // Try to sync any unsynced reports now
+      await syncUnsyncedReports();
+      
+      return LocalStorage.getAllReports();
     } catch (e) {
-      rethrow;
+      // Offline: return whatever we have locally
+      return localReports;
     }
   }
 
   Future<void> submitReport(RoadReport report) async {
+    // 1. Always save locally first (Offline First)
+    await LocalStorage.saveReport(report);
+    
+    // 2. Try to push to remote
     try {
       await _dio.post('/reports', data: report.toJson());
+      // 3. If successful, mark as synced
+      await LocalStorage.markAsSynced(report.id);
     } catch (e) {
-      rethrow;
+      // Fail silently for the UI, it will be synced later
+      print('Submission failed, will sync later: $e');
+    }
+  }
+
+  Future<void> syncUnsyncedReports() async {
+    final unsynced = LocalStorage.getUnsyncedReports();
+    for (var report in unsynced) {
+      try {
+        await _dio.post('/reports', data: report.toJson());
+        await LocalStorage.markAsSynced(report.id);
+      } catch (e) {
+        print('Sync failed for ${report.id}: $e');
+      }
     }
   }
 
