@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
 import '../core/api_client.dart';
 import '../core/theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/models.dart';
 
 class ReportScreen extends StatefulWidget {

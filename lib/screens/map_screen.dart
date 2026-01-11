@@ -610,7 +610,7 @@ class _MapScreenState extends State<MapScreen> {
               left: 0,
               right: 0,
               child: ClipRRect(
-                child: ui.BackdropFilter(
+                child: BackdropFilter(
                   filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                   child: Container(
                     constraints: const BoxConstraints(maxHeight: 400),
