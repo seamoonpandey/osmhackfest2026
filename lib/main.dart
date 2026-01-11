@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'core/theme.dart';
 import 'screens/map_screen.dart';
+import 'core/local_storage.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LocalStorage.init();
   runApp(const MyApp());
 }
 
