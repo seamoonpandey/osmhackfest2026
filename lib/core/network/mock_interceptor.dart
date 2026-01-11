@@ -80,10 +80,12 @@ class MockInterceptor extends Interceptor {
       'type': 'primary',
       'priorityScore': 4.5,
       'points': [
-        {'lat': 27.7150, 'lng': 85.3240},
-        {'lat': 27.7160, 'lng': 85.3242},
-        {'lat': 27.7175, 'lng': 85.3245},
-        {'lat': 27.7190, 'lng': 85.3240},
+        {'lat': 27.7120, 'lng': 85.3240},
+        {'lat': 27.7135, 'lng': 85.3241},
+        {'lat': 27.7150, 'lng': 85.3242},
+        {'lat': 27.7165, 'lng': 85.3243},
+        {'lat': 27.7180, 'lng': 85.3241},
+        {'lat': 27.7195, 'lng': 85.3238},
       ],
     },
     {
@@ -92,10 +94,12 @@ class MockInterceptor extends Interceptor {
       'type': 'secondary',
       'priorityScore': 2.8,
       'points': [
-        {'lat': 27.7200, 'lng': 85.3150},
-        {'lat': 27.7205, 'lng': 85.3180},
-        {'lat': 27.7200, 'lng': 85.3210},
-        {'lat': 27.7200, 'lng': 85.3250},
+        {'lat': 27.7185, 'lng': 85.3200},
+        {'lat': 27.7195, 'lng': 85.3198},
+        {'lat': 27.7205, 'lng': 85.3195},
+        {'lat': 27.7215, 'lng': 85.3190},
+        {'lat': 27.7225, 'lng': 85.3185},
+        {'lat': 27.7235, 'lng': 85.3175},
       ],
     },
   ];
