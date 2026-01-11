@@ -16,9 +16,17 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
+  final TextEditingController _searchController = TextEditingController();
   List<RoadReport> _reports = [];
   List<RoadSegment> _segments = [];
   bool _isLoading = true;
+  bool _showSearchResults = false;
+
+  final List<Map<String, dynamic>> _mockSearchResults = [
+    {'name': 'Durbar Marg', 'location': const LatLng(27.7120, 85.3240)},
+    {'name': 'Lazimpat Road', 'location': const LatLng(27.7185, 85.3200)},
+    {'name': 'Balaju Bypass', 'location': const LatLng(27.7300, 85.3000)},
+  ];
 
   @override
   void initState() {
@@ -27,9 +35,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
     final reports = await apiClient.getReports();
     final segments = await apiClient.getRoadSegments();
     if (mounted) {
@@ -39,6 +45,23 @@ class _MapScreenState extends State<MapScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _handleSearch(String query) {
+    if (query.isNotEmpty) {
+      setState(() => _showSearchResults = true);
+    } else {
+      setState(() => _showSearchResults = false);
+    }
+  }
+
+  void _moveToLocation(LatLng location) {
+    _mapController.move(location, 16.0);
+    setState(() {
+      _showSearchResults = false;
+      _searchController.clear();
+      FocusScope.of(context).unfocus();
+    });
   }
 
   Color _getSeverityColor(Severity severity) {
@@ -56,10 +79,10 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Road Quality Monitor'),
+        title: Text('ROAD MONITOR', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 2)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadData,
           ),
         ],
@@ -76,149 +99,184 @@ class _MapScreenState extends State<MapScreen> {
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.osmapp',
+                tileBuilder: (context, widget, chunk) => ColorFiltered(
+                  colorFilter: const ColorFilter.matrix([
+                    -0.2126, -0.7152, -0.0722, 0, 255,
+                    -0.2126, -0.7152, -0.0722, 0, 255,
+                    -0.2126, -0.7152, -0.0722, 0, 255,
+                    0, 0, 0, 1, 0,
+                  ]),
+                  child: widget,
+                ),
               ),
               PolylineLayer(
                 polylines: [
-                  // Outer Glow layer
-                  ..._segments.map((segment) {
-                    return Polyline(
-                      points: segment.points,
-                      color: _getSeverityColor(segment.severity).withOpacity(0.3),
-                      strokeWidth: 12.0,
-                      strokeCap: StrokeCap.round,
-                      strokeJoin: StrokeJoin.round,
-                    );
-                  }),
-                  // Inner Core layer
-                  ..._segments.map((segment) {
-                    return Polyline(
-                      points: segment.points,
-                      color: _getSeverityColor(segment.severity),
-                      strokeWidth: 5.0,
-                      strokeCap: StrokeCap.round,
-                      strokeJoin: StrokeJoin.round,
-                    );
-                  }),
+                  ..._segments.map((segment) => Polyline(
+                        points: segment.points,
+                        color: Colors.white.withOpacity(0.05),
+                        strokeWidth: 16.0,
+                        strokeCap: StrokeCap.round,
+                      )),
+                  ..._segments.map((segment) => Polyline(
+                        points: segment.points,
+                        color: _getSeverityColor(segment.severity).withOpacity(0.3),
+                        strokeWidth: 10.0,
+                        strokeCap: StrokeCap.round,
+                      )),
+                  ..._segments.map((segment) => Polyline(
+                        points: segment.points,
+                        color: _getSeverityColor(segment.severity),
+                        strokeWidth: 3.0,
+                        strokeCap: StrokeCap.round,
+                      )),
                 ],
               ),
               MarkerLayer(
-                markers: _reports.map((report) {
-                  return Marker(
-                    point: report.location,
-                    width: 50,
-                    height: 50,
-                    child: GestureDetector(
-                      onTap: () => _showReportDetails(report),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _getSeverityColor(report.severity).withOpacity(0.2),
-                            ),
-                          ),
-                          Icon(
-                            Icons.location_on_rounded,
-                            color: _getSeverityColor(report.severity),
-                            size: 32,
-                          ),
-                        ],
+                markers: _reports.map((report) => Marker(
+                      point: report.location,
+                      width: 60,
+                      height: 60,
+                      child: GestureDetector(
+                        onTap: () => _showReportDetails(report),
+                        child: _buildMarker(report),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    )).toList(),
               ),
             ],
           ),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
-          Positioned(
-            top: 60,
-            left: 16,
-            right: 16,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceBg.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search, color: Colors.white54),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Search locations...',
-                        style: TextStyle(color: Colors.white54, fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 32,
-            left: 16,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceBg.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildLegendItem('Urgent', AppTheme.highRisk),
-                      const SizedBox(height: 8),
-                      _buildLegendItem('Medium', AppTheme.mediumRisk),
-                      const SizedBox(height: 8),
-                      _buildLegendItem('Stable', AppTheme.lowRisk),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          _buildSearchOverlay(),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
+          _buildLegend(),
         ],
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 16, right: 0),
-        child: FloatingActionButton.extended(
-          onPressed: () async {
-            final result = await Navigator.push(
-              context,
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) => const ReportScreen(),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                  const begin = Offset(0.0, 1.0);
-                  const end = Offset.zero;
-                  const curve = Curves.easeOutQuart;
-                  var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                  return SlideTransition(position: animation.drive(tween), child: child);
-                },
-              ),
-            );
-            if (result == true) {
-              _loadData();
-            }
-          },
-          label: const Text('REPORT ISSUE', style: TextStyle(letterSpacing: 1.2, fontWeight: FontWeight.bold)),
-          icon: const Icon(Icons.add_a_photo_rounded),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      floatingActionButton: _buildFAB(),
+    );
+  }
+
+  Widget _buildMarker(RoadReport report) {
+    final color = _getSeverityColor(report.severity);
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withOpacity(0.2),
+            border: Border.all(color: color.withOpacity(0.5), width: 1),
+          ),
         ),
+        Icon(Icons.location_on_rounded, color: color, size: 30),
+      ],
+    );
+  }
+
+  Widget _buildSearchOverlay() {
+    return Positioned(
+      top: 20,
+      left: 16,
+      right: 16,
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceBg.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _handleSearch,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Search for roads or areas...',
+                    hintStyle: TextStyle(color: Colors.white38),
+                    prefixIcon: Icon(Icons.search_rounded, color: AppTheme.primaryBlue),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (_showSearchResults)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceBg.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Column(
+                children: _mockSearchResults
+                    .where((res) => res['name'].toString().toLowerCase().contains(_searchController.text.toLowerCase()))
+                    .map((res) => ListTile(
+                          title: Text(res['name'], style: const TextStyle(color: Colors.white)),
+                          leading: const Icon(Icons.place_rounded, color: Colors.white54),
+                          onTap: () => _moveToLocation(res['location']),
+                        ))
+                    .toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegend() {
+    return Positioned(
+      bottom: 24,
+      left: 16,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceBg.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildLegendItem('URGENT', AppTheme.highRisk),
+                const SizedBox(height: 10),
+                _buildLegendItem('REPAIR', AppTheme.mediumRisk),
+                const SizedBox(height: 10),
+                _buildLegendItem('STABLE', AppTheme.lowRisk),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFAB() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: FloatingActionButton.extended(
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, anim, second) => const ReportScreen(),
+              transitionsBuilder: (context, anim, second, child) => FadeTransition(opacity: anim, child: child),
+            ),
+          );
+          if (result == true) _loadData();
+        },
+        label: const Text('REPORT ISSUE', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+        icon: const Icon(Icons.add_a_photo_rounded),
+        elevation: 8,
+        shadowColor: AppTheme.primaryBlue.withOpacity(0.5),
       ),
     );
   }
