@@ -57,7 +57,7 @@ class _UserLocationMarkerState extends State<_UserLocationMarker>
               height: 40 * _controller.value,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppTheme.primaryBlue.withOpacity(1 - _controller.value),
+                color: AppTheme.primaryCoral.withOpacity(1 - _controller.value),
               ),
             ),
             Container(
@@ -67,14 +67,14 @@ class _UserLocationMarkerState extends State<_UserLocationMarker>
                 color: Colors.white,
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1),
+                  BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 1),
                 ],
               ),
               child: Padding(
                 padding: const EdgeInsets.all(2),
                 child: Container(
                   decoration: const BoxDecoration(
-                    color: AppTheme.primaryBlue,
+                    color: AppTheme.primaryCoral,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -229,16 +229,16 @@ class _MapScreenState extends State<MapScreen> {
                 controller: _searchController,
                 autofocus: true,
                 onChanged: _handleSearch,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: const TextStyle(color: Color(0xFF212529), fontSize: 16),
                 decoration: const InputDecoration(
                   hintText: 'Search locations...',
-                  hintStyle: TextStyle(color: Colors.white38),
+                  hintStyle: TextStyle(color: Colors.black38),
                   border: InputBorder.none,
                 ),
               )
-            : Text('ROAD MONITOR',
+            : Text('VIAPULSE',
                 style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 2)),
+                    fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 2, color: AppTheme.primaryCoral)),
         leading: _isSearchingUI
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
@@ -336,8 +336,8 @@ class _MapScreenState extends State<MapScreen> {
             child: FloatingActionButton.small(
               heroTag: 'location_fab',
               onPressed: _goToCurrentLocation,
-              backgroundColor: AppTheme.surfaceBg.withOpacity(0.8),
-              child: const Icon(Icons.my_location_rounded, color: Colors.white),
+              backgroundColor: AppTheme.surfaceWhite,
+              child: const Icon(Icons.my_location_rounded, color: AppTheme.primaryCoral),
             ),
           ),
           _buildFloatingVerticalLegend(),
@@ -350,7 +350,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Widget _buildSidebar() {
     return Drawer(
-      backgroundColor: AppTheme.surfaceBg,
+      backgroundColor: AppTheme.surfaceWhite,
       child: SafeArea(
         child: Column(
           children: [
@@ -358,20 +358,20 @@ class _MapScreenState extends State<MapScreen> {
               padding: const EdgeInsets.all(24),
               width: double.infinity,
               decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withOpacity(0.1),
-                border: const Border(bottom: BorderSide(color: Colors.white10)),
+                color: AppTheme.primaryCoral.withOpacity(0.05),
+                border: const Border(bottom: BorderSide(color: Colors.black12)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('MAP SETTINGS',
+                  Text('VIA PULSE',
                       style: GoogleFonts.plusJakartaSans(
                           fontWeight: FontWeight.w900,
                           fontSize: 18,
-                          color: AppTheme.primaryBlue,
+                          color: AppTheme.primaryCoral,
                           letterSpacing: 1.5)),
-                  const Text('Customize your monitor view',
-                      style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  const Text('Precision Infrastructure Monitor',
+                      style: TextStyle(color: Colors.black38, fontSize: 12)),
                 ],
               ),
             ),
@@ -383,7 +383,7 @@ class _MapScreenState extends State<MapScreen> {
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
-                          color: Colors.white38,
+                          color: Colors.black38,
                           letterSpacing: 1.5)),
                   const SizedBox(height: 16),
                   _buildSidebarToggle(
@@ -397,7 +397,7 @@ class _MapScreenState extends State<MapScreen> {
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
-                          color: Colors.white38,
+                          color: Colors.black38,
                           letterSpacing: 1.5)),
                   const SizedBox(height: 16),
                   _buildSidebarFilter('Level 5 (Danger)', const Color(0xFFF44336), Severity.level5),
@@ -422,9 +422,9 @@ class _MapScreenState extends State<MapScreen> {
                     icon: const Icon(Icons.sync_rounded, size: 18),
                     label: const Text('SYNC DATA'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryBlue.withOpacity(0.2),
-                      foregroundColor: AppTheme.primaryBlue,
-                      side: const BorderSide(color: AppTheme.primaryBlue),
+                      backgroundColor: AppTheme.primaryCoral.withOpacity(0.1),
+                      foregroundColor: AppTheme.primaryCoral,
+                      side: const BorderSide(color: AppTheme.primaryCoral),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
@@ -447,13 +447,13 @@ class _MapScreenState extends State<MapScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: AppTheme.primaryBlue, size: 20),
+          Icon(icon, color: AppTheme.primaryCoral, size: 20),
           const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF212529))),
           const Spacer(),
           Switch.adaptive(
             value: value,
-            activeColor: AppTheme.primaryBlue,
+            activeColor: AppTheme.primaryCoral,
             onChanged: onChanged,
           ),
         ],
@@ -475,7 +475,7 @@ class _MapScreenState extends State<MapScreen> {
       ),
       title: Text(label,
           style: TextStyle(
-              color: isVisible ? Colors.white : Colors.white38,
+              color: isVisible ? const Color(0xFF212529) : Colors.black38,
               fontWeight: isVisible ? FontWeight.bold : FontWeight.normal)),
       trailing: Checkbox(
         value: isVisible,
@@ -570,7 +570,7 @@ class _MapScreenState extends State<MapScreen> {
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.sync_rounded, color: AppTheme.primaryBlue, size: 10),
+                          child: const Icon(Icons.sync_rounded, color: AppTheme.primaryCoral, size: 10),
                         ),
                       ),
                   ],
@@ -590,7 +590,7 @@ class _MapScreenState extends State<MapScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceBg.withOpacity(0.8),
+          color: AppTheme.surfaceWhite,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -647,14 +647,14 @@ class _MapScreenState extends State<MapScreen> {
                   child: Container(
                     constraints: const BoxConstraints(maxHeight: 400),
                     decoration: BoxDecoration(
-                      color: AppTheme.surfaceBg.withOpacity(0.9),
-                      border: const Border(bottom: BorderSide(color: Colors.white10)),
+                      color: AppTheme.surfaceWhite,
+                      border: const Border(bottom: BorderSide(color: Colors.black12)),
                     ),
                     child: _searchResults.isEmpty && !_isSearching
                         ? const Padding(
                             padding: EdgeInsets.all(20),
                             child: Center(
-                              child: Text('No places found', style: TextStyle(color: Colors.white54)),
+                              child: Text('No places found', style: TextStyle(color: Colors.black54)),
                             ),
                           )
                         : ListView.separated(
@@ -669,9 +669,9 @@ class _MapScreenState extends State<MapScreen> {
                                   res['name'], 
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)
+                                  style: const TextStyle(color: Color(0xFF212529), fontSize: 13, fontWeight: FontWeight.bold)
                                 ),
-                                leading: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
+                                leading: const Icon(Icons.place_rounded, color: AppTheme.primaryCoral),
                                 onTap: () => _moveToLocation(LatLng(res['lat'], res['lng'])),
                               );
                             },
@@ -704,7 +704,7 @@ class _MapScreenState extends State<MapScreen> {
           style: const TextStyle(
             fontSize: 9, 
             fontWeight: FontWeight.w900,
-            color: Colors.white70,
+            color: Colors.black54,
             letterSpacing: 0.5,
           ),
         ),
@@ -750,10 +750,10 @@ class _MapScreenState extends State<MapScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isVisible ? color.withOpacity(0.15) : Colors.transparent,
+          color: isVisible ? color.withOpacity(0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isVisible ? color.withOpacity(0.5) : Colors.white10,
+            color: isVisible ? color.withOpacity(0.3) : Colors.black12,
             width: 1,
           ),
         ),
@@ -777,7 +777,7 @@ class _MapScreenState extends State<MapScreen> {
               style: TextStyle(
                 fontSize: 11, 
                 fontWeight: FontWeight.bold,
-                color: isVisible ? Colors.white : Colors.white38,
+                color: isVisible ? const Color(0xFF212529) : Colors.black38,
               ),
             ),
           ],
@@ -794,7 +794,7 @@ class _MapScreenState extends State<MapScreen> {
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: const BoxDecoration(
-            color: AppTheme.surfaceBg,
+            color: AppTheme.surfaceWhite,
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
           child: Column(

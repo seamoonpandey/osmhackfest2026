@@ -104,9 +104,9 @@ class _ReportScreenState extends State<ReportScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppTheme.surfaceBg,
+          color: AppTheme.surfaceWhite,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: Colors.black12),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -116,7 +116,7 @@ class _ReportScreenState extends State<ReportScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white10,
+                color: Colors.black12,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -126,7 +126,7 @@ class _ReportScreenState extends State<ReportScreen> {
               style: GoogleFonts.plusJakartaSans(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
-                color: Colors.white38,
+                color: Colors.black38,
                 letterSpacing: 2,
               ),
             ),
@@ -143,17 +143,17 @@ class _ReportScreenState extends State<ReportScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 4),
                     leading: Icon(
                       Icons.add_location,
-                      color: isSelected ? AppTheme.accentCyan : Colors.white24,
+                      color: isSelected ? AppTheme.primaryCoral : Colors.black12,
                       size: 20,
                     ),
                     title: Text(
                       road,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
+                        color: isSelected ? const Color(0xFF212529) : Colors.black54,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
-                    trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.accentCyan, size: 20) : null,
+                    trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryCoral, size: 20) : null,
                     onTap: () {
                       setState(() => _roadName = road);
                       Navigator.pop(context);
@@ -201,7 +201,7 @@ class _ReportScreenState extends State<ReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
           _buildCameraPreview(),
@@ -263,7 +263,7 @@ class _ReportScreenState extends State<ReportScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           CircleAvatar(
-            backgroundColor: Colors.black26,
+            backgroundColor: Colors.black45,
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.white),
               onPressed: () => Navigator.pop(context),
@@ -304,9 +304,9 @@ class _ReportScreenState extends State<ReportScreen> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceBg.withOpacity(0.8),
+            color: AppTheme.surfaceWhite.withOpacity(0.95),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-            border: Border.all(color: Colors.white10),
+            border: Border.all(color: Colors.black12),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -314,7 +314,7 @@ class _ReportScreenState extends State<ReportScreen> {
               if (_capturedImage == null) ...[
                 const Text(
                   'Capture Road Evidence',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF212529)),
                 ),
                 const SizedBox(height: 24),
                 GestureDetector(
@@ -345,7 +345,7 @@ class _ReportScreenState extends State<ReportScreen> {
                         style: GoogleFonts.plusJakartaSans(
                           fontWeight: FontWeight.w900,
                           fontSize: 14,
-                          color: AppTheme.accentCyan,
+                          color: AppTheme.primaryCoral,
                           letterSpacing: 1,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -354,13 +354,13 @@ class _ReportScreenState extends State<ReportScreen> {
                     if (_nearbyRoads.length > 1)
                       TextButton.icon(
                         onPressed: _showRoadPicker,
-                        icon: const Icon(Icons.edit_location_alt, size: 14, color: AppTheme.accentCyan),
+                        icon: const Icon(Icons.edit_location_alt, size: 14, color: AppTheme.primaryCoral),
                         label: Text(
                           'CHANGE',
                           style: GoogleFonts.plusJakartaSans(
                             fontWeight: FontWeight.bold,
                             fontSize: 10,
-                            color: AppTheme.accentCyan,
+                            color: AppTheme.primaryCoral,
                           ),
                         ),
                         style: TextButton.styleFrom(
@@ -374,7 +374,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       const SizedBox(
                         width: 12,
                         height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accentCyan),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryCoral),
                       ),
                     ],
                   ],
@@ -401,14 +401,17 @@ class _ReportScreenState extends State<ReportScreen> {
                           label: Text(type),
                           selected: isSelected,
                           onSelected: (val) => setState(() => _selectedIssueType = type),
-                          backgroundColor: Colors.white.withOpacity(0.05),
-                          selectedColor: AppTheme.primaryBlue,
+                          backgroundColor: Colors.black.withOpacity(0.04),
+                          selectedColor: AppTheme.primaryCoral.withOpacity(0.15),
                           labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white70,
+                            color: isSelected ? AppTheme.primaryCoral : Colors.black54,
                             fontSize: 12,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: isSelected ? AppTheme.primaryCoral : Colors.transparent),
+                          ),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
                       );
@@ -442,12 +445,12 @@ class _ReportScreenState extends State<ReportScreen> {
                 const SizedBox(height: 24),
                 TextField(
                   controller: _descriptionController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color(0xFF212529)),
                   decoration: InputDecoration(
                     hintText: 'Additional details...',
-                    hintStyle: const TextStyle(color: Colors.white38),
+                    hintStyle: const TextStyle(color: Colors.black26),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
+                    fillColor: Colors.black.withOpacity(0.04),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -461,7 +464,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     Expanded(
                       child: TextButton(
                         onPressed: () => setState(() => _capturedImage = null),
-                        child: const Text('Retake', style: TextStyle(color: Colors.white54)),
+                        child: const Text('Retake', style: TextStyle(color: Colors.black38)),
                       ),
                     ),
                     Expanded(
@@ -469,10 +472,11 @@ class _ReportScreenState extends State<ReportScreen> {
                       child: ElevatedButton(
                         onPressed: _submitReport,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.accentCyan,
+                          backgroundColor: AppTheme.primaryCoral,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 2,
                         ),
                         child: const Text('SUBMIT REPORT', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),

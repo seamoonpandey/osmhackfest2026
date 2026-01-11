@@ -2,55 +2,65 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Refined Color Palette
-  static const Color primaryBlue = Color(0xFF6366F1); // Modern Indigo
-  static const Color accentCyan = Color(0xFF22D3EE);  // Bright Cyan
-  static const Color highRisk = Color(0xFFF43F5E);    // Rose
-  static const Color mediumRisk = Color(0xFFF59E0B);  // Amber
-  static const Color lowRisk = Color(0xFF10B981);     // Emerald
+  // Vibrant & Soft Color Palette
+  static const Color primaryCoral = Color(0xFFFF6B6B); // Soft Vibrant Coral
+  static const Color accentLavender = Color(0xFF845EF7); // Gentle Lavender
+  static const Color softOrange = Color(0xFFFFA94D); // Warm Sunset
   
-  static const Color darkBg = Color(0xFF020617);      // Slate 950
-  static const Color surfaceBg = Color(0xFF1E293B);   // Slate 800
-  static const Color surfaceElevated = Color(0xFF334155); // Slate 700
+  static const Color highRisk = Color(0xFFFF4D4D);
+  static const Color mediumRisk = Color(0xFFFAB005);
+  static const Color lowRisk = Color(0xFF40C057);
+  
+  static const Color lightBg = Color(0xFFF8F9FA);      // Very light grey/white
+  static const Color surfaceWhite = Color(0xFFFFFFFF); // Pure white
+  static const Color surfaceMuted = Color(0xFFE9ECEF); // Muted grey
 
-  static ThemeData darkTheme = ThemeData.dark().copyWith(
-    scaffoldBackgroundColor: darkBg,
-    primaryColor: primaryBlue,
-    colorScheme: const ColorScheme.dark(
-      primary: primaryBlue,
-      secondary: accentCyan,
-      surface: surfaceBg,
-      onSurface: Colors.white,
+  static ThemeData lightTheme = ThemeData.light().copyWith(
+    scaffoldBackgroundColor: lightBg,
+    primaryColor: primaryCoral,
+    colorScheme: const ColorScheme.light(
+      primary: primaryCoral,
+      secondary: accentLavender,
+      surface: surfaceWhite,
+      onSurface: Color(0xFF212529),
     ),
-    textTheme: GoogleFonts.plusJakartaSansTextTheme(ThemeData.dark().textTheme).copyWith(
+    textTheme: GoogleFonts.plusJakartaSansTextTheme(ThemeData.light().textTheme).copyWith(
       headlineMedium: GoogleFonts.plusJakartaSans(
         fontWeight: FontWeight.w800,
         letterSpacing: -0.5,
+        color: const Color(0xFF212529),
       ),
       titleLarge: GoogleFonts.plusJakartaSans(
         fontWeight: FontWeight.w700,
         fontSize: 20,
+        color: const Color(0xFF212529),
       ),
     ),
     cardTheme: CardThemeData(
-      color: surfaceBg,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 0,
+      color: surfaceWhite,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.05),
     ),
     appBarTheme: AppBarTheme(
-      backgroundColor: darkBg,
+      backgroundColor: lightBg,
       elevation: 0,
       centerTitle: true,
+      iconTheme: const IconThemeData(color: Color(0xFF212529)),
       titleTextStyle: GoogleFonts.plusJakartaSans(
         fontSize: 18,
         fontWeight: FontWeight.bold,
-        color: Colors.white,
+        color: const Color(0xFF212529),
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: primaryBlue,
+      backgroundColor: primaryCoral,
       foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
   );
+
+  // Keep darkTheme for system compatibility but update it to be less "neon"
+  static ThemeData darkTheme = lightTheme; // For now, let's default to light for that vibrant feel
 }
