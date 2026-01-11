@@ -297,26 +297,26 @@ class _MapScreenState extends State<MapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                      .map((report) {
-                        final isVisible = _visibleSeverities.contains(report.severity);
-                        return Marker(
-                          point: report.location,
-                          width: 60,
-                          height: 60,
-                          child: AnimatedOpacity(
-                            opacity: isVisible ? 1.0 : 0.0,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                            child: IgnorePointer(
-                              ignoring: !isVisible,
-                              child: GestureDetector(
-                                onTap: () => _showReportDetails(report),
-                                child: _buildMarker(report),
-                              ),
-                            ),
+                  ..._reports.map((report) {
+                    final isVisible = _visibleSeverities.contains(report.severity);
+                    return Marker(
+                      point: report.location,
+                      width: 60,
+                      height: 60,
+                      child: AnimatedOpacity(
+                        opacity: isVisible ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        child: IgnorePointer(
+                          ignoring: !isVisible,
+                          child: GestureDetector(
+                            onTap: () => _showReportDetails(report),
+                            child: _buildMarker(report),
                           ),
-                        );
-                      }),
+                        ),
+                      ),
+                    );
+                  }),
                   if (_currentPosition != null && _showUserLocation)
                     Marker(
                       point: _currentPosition!,
@@ -510,25 +510,42 @@ class _MapScreenState extends State<MapScreen> {
                   shape: BoxShape.circle,
                 ),
                 padding: const EdgeInsets.all(1.5),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(size),
-                  child: report.imageUrl != null
-                      ? (report.imageUrl!.startsWith('http')
-                          ? Image.network(
-                              report.imageUrl!,
-                              fit: BoxFit.cover,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(child: CircularProgressIndicator(strokeWidth: 2, color: color.withOpacity(0.5)));
-                              },
-                              errorBuilder: (c, e, s) => Icon(Icons.broken_image_rounded, color: color, size: 20),
-                            )
-                          : Image.file(
-                              File(report.imageUrl!),
-                              fit: BoxFit.cover,
-                              errorBuilder: (c, e, s) => Icon(Icons.no_photography_rounded, color: color, size: 20),
-                            ))
-                      : Icon(Icons.warning_amber_rounded, color: color, size: 22),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(size),
+                      child: report.imageUrl != null
+                          ? (report.imageUrl!.startsWith('http')
+                              ? Image.network(
+                                  report.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Center(child: CircularProgressIndicator(strokeWidth: 2, color: color.withOpacity(0.5)));
+                                  },
+                                  errorBuilder: (c, e, s) => Icon(Icons.broken_image_rounded, color: color, size: 20),
+                                )
+                              : Image.file(
+                                  File(report.imageUrl!),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => Icon(Icons.no_photography_rounded, color: color, size: 20),
+                                ))
+                          : Icon(Icons.warning_amber_rounded, color: color, size: 22),
+                    ),
+                    if (!report.isSynced)
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.sync_rounded, color: AppTheme.primaryBlue, size: 10),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
