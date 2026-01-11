@@ -1,4 +1,4 @@
-name: osmapp
+name: viapulse
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -46,6 +46,8 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   google_generative_ai: ^0.4.7
+  flutter_native_splash: ^2.4.7
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +71,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/images/logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -100,3 +104,18 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: "ic_launch"
+  ios: true
+  image_path: "assets/images/logo.png"
+  adaptive_icon_background: "#020617"
+  adaptive_icon_foreground: "assets/images/logo.png"
+
+flutter_native_splash:
+  color: "#020617"
+  image: assets/images/logo.png
+  android_12:
+    image: assets/images/logo.png
+    color: "#020617"
+  fullscreen: true
