@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:ui';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -331,6 +331,7 @@ class _MapScreenState extends State<MapScreen> {
               child: const Icon(Icons.my_location_rounded, color: Colors.white),
             ),
           ),
+          _buildFloatingVerticalLegend(),
         ],
       ),
       floatingActionButton: _buildFAB(),
@@ -460,82 +461,103 @@ class _MapScreenState extends State<MapScreen> {
 
   Widget _buildMarker(RoadReport report) {
     final color = _getSeverityColor(report.severity);
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Marker Shadow/Glow
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withOpacity(0.2),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.4),
-                blurRadius: 12,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-        ),
-        // Main Marker Container
-        Container(
-          width: 36,
-          height: 36,
-          padding: const EdgeInsets.all(2),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: report.imageUrl != null
-                ? (report.imageUrl!.startsWith('http')
-                    ? Image.network(
-                        report.imageUrl!,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            color: color.withOpacity(0.1),
-                            child: const Center(child: SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 2))),
-                          );
-                        },
-                        errorBuilder: (c, e, s) => Container(
-                          color: color,
-                          child: const Icon(Icons.broken_image_rounded, color: Colors.white, size: 18),
-                        ),
-                      )
-                    : Image.file(
-                        File(report.imageUrl!),
-                        fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) => Container(
-                          color: color,
-                          child: const Icon(Icons.no_photography_rounded, color: Colors.white, size: 18),
-                        ),
-                      ))
-                : Container(
-                    color: color,
-                    child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
-                  ),
-          ),
-        ),
-        // Risk Badge (Bottom Right)
-        Positioned(
-          bottom: 0,
-          right: 0,
-          child: Container(
-            width: 14,
-            height: 14,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
+    const double size = 44.0;
+
+    return Transform.translate(
+      offset: const Offset(0, -size / 2), // Shift up so tip is at coordinate
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Pin Tip (The Triangle)
+          Positioned(
+            bottom: 0,
+            child: CustomPaint(
+              size: const Size(16, 16),
+              painter: _PinTipPainter(color),
             ),
           ),
+          // Pin Head (The Circle)
+          Positioned(
+            top: 0,
+            child: Container(
+              width: size,
+              height: size,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(1.5),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(size),
+                  child: report.imageUrl != null
+                      ? (report.imageUrl!.startsWith('http')
+                          ? Image.network(
+                              report.imageUrl!,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(child: CircularProgressIndicator(strokeWidth: 2, color: color.withOpacity(0.5)));
+                              },
+                              errorBuilder: (c, e, s) => Icon(Icons.broken_image_rounded, color: color, size: 20),
+                            )
+                          : Image.file(
+                              File(report.imageUrl!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (c, e, s) => Icon(Icons.no_photography_rounded, color: color, size: 20),
+                            ))
+                      : Icon(Icons.warning_amber_rounded, color: color, size: 22),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFloatingVerticalLegend() {
+    return Positioned(
+      bottom: 24,
+      left: 16,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceBg.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
         ),
-      ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLegendItem('Urgent', AppTheme.highRisk, Severity.high),
+            const SizedBox(height: 8),
+            _buildLegendItem('Repair', AppTheme.mediumRisk, Severity.medium),
+            const SizedBox(height: 8),
+            _buildLegendItem('Stable', AppTheme.lowRisk, Severity.low),
+          ],
+        ),
+      ),
     );
   }
 
@@ -550,7 +572,7 @@ class _MapScreenState extends State<MapScreen> {
       right: 0,
       child: ClipRRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             constraints: const BoxConstraints(maxHeight: 400),
             decoration: BoxDecoration(
@@ -589,37 +611,32 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildLegend() {
-    return Positioned(
-      bottom: 24,
-      left: 16,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceBg.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white10),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('FILTERS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white38, letterSpacing: 1.5)),
-                const SizedBox(height: 12),
-                _buildLegendItem('URGENT', AppTheme.highRisk, Severity.high),
-                const SizedBox(height: 8),
-                _buildLegendItem('REPAIR', AppTheme.mediumRisk, Severity.medium),
-                const SizedBox(height: 8),
-                _buildLegendItem('STABLE', AppTheme.lowRisk, Severity.low),
-              ],
-            ),
+  Widget _buildSimpleLegendItem(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: color.withOpacity(0.4), blurRadius: 4, spreadRadius: 1)
+            ],
           ),
         ),
-      ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 9, 
+            fontWeight: FontWeight.w900,
+            color: Colors.white70,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
     );
   }
 
@@ -796,4 +813,27 @@ class _MapScreenState extends State<MapScreen> {
       },
     );
   }
+}
+
+class _PinTipPainter extends CustomPainter {
+  final Color color;
+  _PinTipPainter(this.color);
+
+  @override
+  void paint(ui.Canvas canvas, ui.Size size) {
+    final paint = ui.Paint()
+      ..color = color
+      ..style = ui.PaintingStyle.fill;
+
+    final path = ui.Path();
+    path.moveTo(0, 0);
+    path.lineTo(size.width / 2, size.height);
+    path.lineTo(size.width, 0);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
