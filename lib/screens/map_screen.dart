@@ -72,7 +72,11 @@ class _UserLocationMarkerState extends State<_UserLocationMarker>
                 color: Colors.white,
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 1),
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 4,
+                    spreadRadius: 1,
+                  ),
                 ],
               ),
               child: Padding(
@@ -97,6 +101,7 @@ class _MapScreenState extends State<MapScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<RoadReport> _reports = [];
   List<RoadSegment> _segments = [];
+  List<Polyline> _cachedPolylines = []; // Cached polylines to avoid rebuilding
   LatLng? _currentPosition;
   bool _isLoading = true;
   bool _isSearching = false;
@@ -122,8 +127,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _setupAutoSync() {
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
-      if (results.contains(ConnectivityResult.mobile) || 
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      results,
+    ) {
+      if (results.contains(ConnectivityResult.mobile) ||
           results.contains(ConnectivityResult.wifi) ||
           results.contains(ConnectivityResult.ethernet)) {
         _performAutoSync();
@@ -175,7 +182,7 @@ class _MapScreenState extends State<MapScreen> {
 
     // Attempt to sync pending reports on load
     apiClient.syncUnsyncedReports();
-    
+
     // Get current position for initial view
     try {
       Position position = await Geolocator.getCurrentPosition(
@@ -183,7 +190,10 @@ class _MapScreenState extends State<MapScreen> {
         timeLimit: const Duration(seconds: 5),
       );
       if (mounted) {
-        _mapController.move(LatLng(position.latitude, position.longitude), 14.0);
+        _mapController.move(
+          LatLng(position.latitude, position.longitude),
+          14.0,
+        );
       }
     } catch (e) {
       // Fallback to default if location fails
@@ -196,9 +206,27 @@ class _MapScreenState extends State<MapScreen> {
       setState(() {
         _reports = reports;
         _segments = segments;
+        _rebuildPolylines();
         _isLoading = false;
       });
     }
+  }
+
+  /// Rebuild cached polylines - call when segments or visibility changes
+  void _rebuildPolylines() {
+    _cachedPolylines = _segments
+        .where((segment) => _visibleSeverities.contains(segment.severity))
+        .map((segment) {
+          final color = _getSeverityColor(segment.severity);
+          return Polyline(
+            points: segment.points,
+            color: color.withOpacity(0.7),
+            strokeWidth: 4.0,
+            borderColor: Colors.black12,
+            borderStrokeWidth: 1.0,
+          );
+        })
+        .toList();
   }
 
   void _handleSearch(String query) async {
@@ -220,7 +248,7 @@ class _MapScreenState extends State<MapScreen> {
     if (_lastSearchTime != now) return;
 
     final results = await apiClient.searchPlaces(query);
-    
+
     if (mounted) {
       setState(() {
         _searchResults = results;
@@ -235,14 +263,14 @@ class _MapScreenState extends State<MapScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      
+
       final position = await Geolocator.getCurrentPosition();
       _mapController.move(LatLng(position.latitude, position.longitude), 16.0);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error getting location: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error getting location: $e')));
       }
     }
   }
@@ -259,11 +287,16 @@ class _MapScreenState extends State<MapScreen> {
 
   Color _getSeverityColor(Severity severity) {
     switch (severity) {
-      case Severity.level1: return const Color(0xFF4CAF50);
-      case Severity.level2: return const Color(0xFF8BC34A);
-      case Severity.level3: return const Color(0xFFFFC107);
-      case Severity.level4: return const Color(0xFFFF9800);
-      case Severity.level5: return const Color(0xFFF44336);
+      case Severity.level1:
+        return const Color(0xFF4CAF50);
+      case Severity.level2:
+        return const Color(0xFF8BC34A);
+      case Severity.level3:
+        return const Color(0xFFFFC107);
+      case Severity.level4:
+        return const Color(0xFFFF9800);
+      case Severity.level5:
+        return const Color(0xFFF44336);
     }
   }
 
@@ -283,9 +316,15 @@ class _MapScreenState extends State<MapScreen> {
                   border: InputBorder.none,
                 ),
               )
-            : Text('VIAPULSE',
+            : Text(
+                'VIAPULSE',
                 style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 2, color: AppTheme.primaryCoral)),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  letterSpacing: 2,
+                  color: AppTheme.primaryCoral,
+                ),
+              ),
         leading: _isSearchingUI
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
@@ -342,20 +381,7 @@ class _MapScreenState extends State<MapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.osmapp',
               ),
-              PolylineLayer(
-                polylines: _segments
-                    .where((segment) => _visibleSeverities.contains(segment.severity))
-                    .map((segment) {
-                  final color = _getSeverityColor(segment.severity);
-                  return Polyline(
-                    points: segment.points,
-                    color: color.withOpacity(0.7),
-                    strokeWidth: 4.0,
-                    borderColor: Colors.black12, 
-                    borderStrokeWidth: 1.0,
-                  );
-                }).toList(),
-              ),
+              PolylineLayer(polylines: _cachedPolylines),
               MarkerClusterLayerWidget(
                 options: MarkerClusterLayerOptions(
                   maxClusterRadius: 45,
@@ -363,16 +389,21 @@ class _MapScreenState extends State<MapScreen> {
                   alignment: Alignment.center,
                   padding: const EdgeInsets.all(50),
                   markers: _reports
-                      .where((report) => _visibleSeverities.contains(report.severity))
-                      .map((report) => Marker(
-                            point: report.location,
-                            width: 60,
-                            height: 60,
-                            child: GestureDetector(
-                              onTap: () => _showReportDetails(report),
-                              child: _buildMarker(report),
-                            ),
-                          ))
+                      .where(
+                        (report) =>
+                            _visibleSeverities.contains(report.severity),
+                      )
+                      .map(
+                        (report) => Marker(
+                          point: report.location,
+                          width: 60,
+                          height: 60,
+                          child: GestureDetector(
+                            onTap: () => _showReportDetails(report),
+                            child: _buildMarker(report),
+                          ),
+                        ),
+                      )
                       .toList(),
                   builder: (context, markers) {
                     return Container(
@@ -381,13 +412,20 @@ class _MapScreenState extends State<MapScreen> {
                         borderRadius: BorderRadius.circular(20),
                         color: AppTheme.primaryCoral,
                         boxShadow: const [
-                           BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
                         ],
                       ),
                       child: Center(
                         child: Text(
                           markers.length.toString(),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     );
@@ -416,7 +454,10 @@ class _MapScreenState extends State<MapScreen> {
               heroTag: 'location_fab',
               onPressed: _goToCurrentLocation,
               backgroundColor: AppTheme.surfaceWhite,
-              child: const Icon(Icons.my_location_rounded, color: AppTheme.primaryCoral),
+              child: const Icon(
+                Icons.my_location_rounded,
+                color: AppTheme.primaryCoral,
+              ),
             ),
           ),
           _buildFloatingVerticalLegend(),
@@ -443,14 +484,19 @@ class _MapScreenState extends State<MapScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('VIA PULSE',
-                      style: GoogleFonts.plusJakartaSans(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                          color: AppTheme.primaryCoral,
-                          letterSpacing: 1.5)),
-                  const Text('Precision Infrastructure Monitor',
-                      style: TextStyle(color: Colors.black38, fontSize: 12)),
+                  Text(
+                    'VIA PULSE',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      color: AppTheme.primaryCoral,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const Text(
+                    'Precision Infrastructure Monitor',
+                    style: TextStyle(color: Colors.black38, fontSize: 12),
+                  ),
                 ],
               ),
             ),
@@ -458,12 +504,15 @@ class _MapScreenState extends State<MapScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
-                  const Text('VISIBLE LAYERS',
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.black38,
-                          letterSpacing: 1.5)),
+                  const Text(
+                    'VISIBLE LAYERS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black38,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   _buildSidebarToggle(
                     'My Location',
@@ -473,28 +522,68 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                   const SizedBox(height: 8),
                   ListTile(
-                    leading: const Icon(Icons.history_rounded, color: AppTheme.primaryCoral),
-                    title: const Text('My Activity', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF212529))),
+                    leading: const Icon(
+                      Icons.history_rounded,
+                      color: AppTheme.primaryCoral,
+                    ),
+                    title: const Text(
+                      'My Activity',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF212529),
+                      ),
+                    ),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const HistoryScreen(),
+                        ),
+                      );
                     },
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     dense: true,
                   ),
                   const SizedBox(height: 32),
-                  const Text('ROAD FILTERS',
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.black38,
-                          letterSpacing: 1.5)),
+                  const Text(
+                    'ROAD FILTERS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black38,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
                   const SizedBox(height: 16),
-                  _buildSidebarFilter('Level 5 (Critical)', const Color(0xFFF44336), Severity.level5),
-                  _buildSidebarFilter('Level 4 (Very High)', const Color(0xFFFF9800), Severity.level4),
-                  _buildSidebarFilter('Level 3 (High)', const Color(0xFFFFC107), Severity.level3),
-                  _buildSidebarFilter('Level 2 (Medium)', const Color(0xFF8BC34A), Severity.level2),
-                  _buildSidebarFilter('Level 1 (Low)', const Color(0xFF4CAF50), Severity.level1),
+                  _buildSidebarFilter(
+                    'Level 5 (Critical)',
+                    const Color(0xFFF44336),
+                    Severity.level5,
+                  ),
+                  _buildSidebarFilter(
+                    'Level 4 (Very High)',
+                    const Color(0xFFFF9800),
+                    Severity.level4,
+                  ),
+                  _buildSidebarFilter(
+                    'Level 3 (High)',
+                    const Color(0xFFFFC107),
+                    Severity.level3,
+                  ),
+                  _buildSidebarFilter(
+                    'Level 2 (Medium)',
+                    const Color(0xFF8BC34A),
+                    Severity.level2,
+                  ),
+                  _buildSidebarFilter(
+                    'Level 1 (Low)',
+                    const Color(0xFF4CAF50),
+                    Severity.level1,
+                  ),
                   const SizedBox(height: 32),
                   ElevatedButton.icon(
                     onPressed: () async {
@@ -516,7 +605,9 @@ class _MapScreenState extends State<MapScreen> {
                       foregroundColor: AppTheme.primaryCoral,
                       side: const BorderSide(color: AppTheme.primaryCoral),
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                   ),
                 ],
@@ -528,7 +619,12 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildSidebarToggle(String label, IconData icon, bool value, Function(bool) onChanged) {
+  Widget _buildSidebarToggle(
+    String label,
+    IconData icon,
+    bool value,
+    Function(bool) onChanged,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -539,7 +635,13 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           Icon(icon, color: AppTheme.primaryCoral, size: 20),
           const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF212529))),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF212529),
+            ),
+          ),
           const Spacer(),
           Switch.adaptive(
             value: value,
@@ -563,10 +665,13 @@ class _MapScreenState extends State<MapScreen> {
           shape: BoxShape.circle,
         ),
       ),
-      title: Text(label,
-          style: TextStyle(
-              color: isVisible ? const Color(0xFF212529) : Colors.black38,
-              fontWeight: isVisible ? FontWeight.bold : FontWeight.normal)),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: isVisible ? const Color(0xFF212529) : Colors.black38,
+          fontWeight: isVisible ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
       trailing: Checkbox(
         value: isVisible,
         onChanged: (val) {
@@ -576,6 +681,7 @@ class _MapScreenState extends State<MapScreen> {
             } else {
               _visibleSeverities.remove(severity);
             }
+            _rebuildPolylines();
           });
         },
         activeColor: color,
@@ -633,21 +739,40 @@ class _MapScreenState extends State<MapScreen> {
                         borderRadius: BorderRadius.circular(size),
                         child: report.imageUrl != null
                             ? (report.imageUrl!.startsWith('http')
-                                ? Image.network(
-                                    report.imageUrl!,
-                                    fit: BoxFit.cover,
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Center(child: CircularProgressIndicator(strokeWidth: 2, color: color.withOpacity(0.5)));
-                                    },
-                                    errorBuilder: (c, e, s) => Icon(Icons.broken_image_rounded, color: color, size: 20),
-                                  )
-                                : Image.file(
-                                    File(report.imageUrl!),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (c, e, s) => Icon(Icons.no_photography_rounded, color: color, size: 20),
-                                  ))
-                            : Icon(Icons.warning_amber_rounded, color: color, size: 22),
+                                  ? Image.network(
+                                      report.imageUrl!,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder:
+                                          (context, child, loadingProgress) {
+                                            if (loadingProgress == null)
+                                              return child;
+                                            return Center(
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: color.withOpacity(0.5),
+                                              ),
+                                            );
+                                          },
+                                      errorBuilder: (c, e, s) => Icon(
+                                        Icons.broken_image_rounded,
+                                        color: color,
+                                        size: 20,
+                                      ),
+                                    )
+                                  : Image.file(
+                                      File(report.imageUrl!),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (c, e, s) => Icon(
+                                        Icons.no_photography_rounded,
+                                        color: color,
+                                        size: 20,
+                                      ),
+                                    ))
+                            : Icon(
+                                Icons.warning_amber_rounded,
+                                color: color,
+                                size: 22,
+                              ),
                       ),
                     ),
                     if (!report.isSynced)
@@ -660,7 +785,11 @@ class _MapScreenState extends State<MapScreen> {
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.sync_rounded, color: AppTheme.primaryCoral, size: 10),
+                          child: const Icon(
+                            Icons.sync_rounded,
+                            color: AppTheme.primaryCoral,
+                            size: 10,
+                          ),
                         ),
                       ),
                   ],
@@ -694,13 +823,25 @@ class _MapScreenState extends State<MapScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLegendItem('Critical', const Color(0xFFF44336), Severity.level5),
+            _buildLegendItem(
+              'Critical',
+              const Color(0xFFF44336),
+              Severity.level5,
+            ),
             const SizedBox(height: 8),
-            _buildLegendItem('Very High', const Color(0xFFFF9800), Severity.level4),
+            _buildLegendItem(
+              'Very High',
+              const Color(0xFFFF9800),
+              Severity.level4,
+            ),
             const SizedBox(height: 8),
             _buildLegendItem('High', const Color(0xFFFFC107), Severity.level3),
             const SizedBox(height: 8),
-            _buildLegendItem('Medium', const Color(0xFF8BC34A), Severity.level2),
+            _buildLegendItem(
+              'Medium',
+              const Color(0xFF8BC34A),
+              Severity.level2,
+            ),
             const SizedBox(height: 8),
             _buildLegendItem('Low', const Color(0xFF4CAF50), Severity.level1),
           ],
@@ -724,7 +865,11 @@ class _MapScreenState extends State<MapScreen> {
           ),
         );
       },
-      child: (!_isSearchingUI || (_searchResults.isEmpty && !_isSearching && _searchController.text.length < 3))
+      child:
+          (!_isSearchingUI ||
+              (_searchResults.isEmpty &&
+                  !_isSearching &&
+                  _searchController.text.length < 3))
           ? const SizedBox.shrink(key: ValueKey('empty'))
           : Positioned(
               key: const ValueKey('search_results'),
@@ -738,31 +883,46 @@ class _MapScreenState extends State<MapScreen> {
                     constraints: const BoxConstraints(maxHeight: 400),
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceWhite,
-                      border: const Border(bottom: BorderSide(color: Colors.black12)),
+                      border: const Border(
+                        bottom: BorderSide(color: Colors.black12),
+                      ),
                     ),
                     child: _searchResults.isEmpty && !_isSearching
                         ? const Padding(
                             padding: EdgeInsets.all(20),
                             child: Center(
-                              child: Text('No places found', style: TextStyle(color: Colors.black54)),
+                              child: Text(
+                                'No places found',
+                                style: TextStyle(color: Colors.black54),
+                              ),
                             ),
                           )
                         : ListView.separated(
                             shrinkWrap: true,
                             padding: EdgeInsets.zero,
                             itemCount: _searchResults.length,
-                            separatorBuilder: (context, index) => const Divider(color: Colors.white10, height: 1),
+                            separatorBuilder: (context, index) =>
+                                const Divider(color: Colors.white10, height: 1),
                             itemBuilder: (context, index) {
                               final res = _searchResults[index];
                               return ListTile(
                                 title: Text(
-                                  res['name'], 
+                                  res['name'],
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Color(0xFF212529), fontSize: 13, fontWeight: FontWeight.bold)
+                                  style: const TextStyle(
+                                    color: Color(0xFF212529),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                                leading: const Icon(Icons.place_rounded, color: AppTheme.primaryCoral),
-                                onTap: () => _moveToLocation(LatLng(res['lat'], res['lng'])),
+                                leading: const Icon(
+                                  Icons.place_rounded,
+                                  color: AppTheme.primaryCoral,
+                                ),
+                                onTap: () => _moveToLocation(
+                                  LatLng(res['lat'], res['lng']),
+                                ),
                               );
                             },
                           ),
@@ -784,7 +944,11 @@ class _MapScreenState extends State<MapScreen> {
             color: color,
             shape: BoxShape.circle,
             boxShadow: [
-              BoxShadow(color: color.withOpacity(0.4), blurRadius: 4, spreadRadius: 1)
+              BoxShadow(
+                color: color.withOpacity(0.4),
+                blurRadius: 4,
+                spreadRadius: 1,
+              ),
             ],
           ),
         ),
@@ -792,7 +956,7 @@ class _MapScreenState extends State<MapScreen> {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 9, 
+            fontSize: 9,
             fontWeight: FontWeight.w900,
             color: Colors.black54,
             letterSpacing: 0.5,
@@ -811,12 +975,16 @@ class _MapScreenState extends State<MapScreen> {
             context,
             PageRouteBuilder(
               pageBuilder: (context, anim, second) => const ReportScreen(),
-              transitionsBuilder: (context, anim, second, child) => FadeTransition(opacity: anim, child: child),
+              transitionsBuilder: (context, anim, second, child) =>
+                  FadeTransition(opacity: anim, child: child),
             ),
           );
           if (result == true) _loadData();
         },
-        label: const Text('REPORT ISSUE', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+        label: const Text(
+          'REPORT ISSUE',
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
+        ),
         icon: const Icon(Icons.add_a_photo_rounded),
         elevation: 8,
       ),
@@ -825,7 +993,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Widget _buildLegendItem(String label, Color color, Severity severity) {
     final bool isVisible = _visibleSeverities.contains(severity);
-    
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -834,6 +1002,7 @@ class _MapScreenState extends State<MapScreen> {
           } else {
             _visibleSeverities.add(severity);
           }
+          _rebuildPolylines();
         });
       },
       child: AnimatedContainer(
@@ -856,16 +1025,22 @@ class _MapScreenState extends State<MapScreen> {
               decoration: BoxDecoration(
                 color: isVisible ? color : color.withOpacity(0.2),
                 shape: BoxShape.circle,
-                boxShadow: isVisible ? [
-                  BoxShadow(color: color.withOpacity(0.5), blurRadius: 4, spreadRadius: 1)
-                ] : null,
+                boxShadow: isVisible
+                    ? [
+                        BoxShadow(
+                          color: color.withOpacity(0.5),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
               ),
             ),
             const SizedBox(width: 10),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11, 
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: isVisible ? const Color(0xFF212529) : Colors.black38,
               ),

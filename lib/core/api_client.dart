@@ -188,19 +188,43 @@ class ApiClient {
   }
 
   // Helper to find nearest road ID based on location
+  // Optimized: Uses bounding box filtering to avoid checking all points
   Future<int> _findNearestRoadId(double lat, double lng) async {
     try {
-      // Reuse getRoadSegments which now fetches from the new API structure
       final segments = await getRoadSegments();
+      if (segments.isEmpty) return 0;
 
       String? nearestId;
       double minDistance = double.infinity;
       const distance = Distance();
       final target = LatLng(lat, lng);
 
-      for (var segment in segments) {
-        for (var point in segment.points) {
-          final d = distance.as(LengthUnit.Meter, target, point);
+      // ~100 meters in degrees (rough approximation)
+      const searchRadius = 0.001;
+
+      // First pass: only check segments whose bounding box is near the target
+      final nearbySegments = segments
+          .where(
+            (s) => s.isNearBoundingBox(lat, lng, paddingDegrees: searchRadius),
+          )
+          .toList();
+
+      // If no nearby segments, expand search to all (fallback)
+      final segmentsToCheck = nearbySegments.isNotEmpty
+          ? nearbySegments
+          : segments;
+
+      for (var segment in segmentsToCheck) {
+        // Only sample a few points instead of all - first, last, and middle
+        final points = segment.points;
+        final sampleIndices = <int>[
+          0,
+          if (points.length > 2) points.length ~/ 2,
+          if (points.length > 1) points.length - 1,
+        ];
+
+        for (var i in sampleIndices) {
+          final d = distance.as(LengthUnit.Meter, target, points[i]);
           if (d < minDistance) {
             minDistance = d;
             nearestId = segment.id;
@@ -208,8 +232,6 @@ class ApiClient {
         }
       }
 
-      // If no road found within reasonable distance (e.g. 50m), user might be off-road
-      // But for now we just return the nearest one.
       return int.tryParse(nearestId ?? '0') ?? 0;
     } catch (e) {
       return 0;

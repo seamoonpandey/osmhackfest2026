@@ -4,12 +4,17 @@ import 'package:hive/hive.dart';
 part 'models.g.dart';
 
 @HiveType(typeId: 0)
-enum Severity { 
-  @HiveField(0) level1, // Low
-  @HiveField(1) level2, // Medium
-  @HiveField(2) level3, // High
-  @HiveField(3) level4, // Very High
-  @HiveField(4) level5  // Critical
+enum Severity {
+  @HiveField(0)
+  level1, // Low
+  @HiveField(1)
+  level2, // Medium
+  @HiveField(2)
+  level3, // High
+  @HiveField(3)
+  level4, // Very High
+  @HiveField(4)
+  level5, // Critical
 }
 
 @HiveType(typeId: 1)
@@ -37,7 +42,6 @@ class RoadReport {
   @HiveField(10)
   final String? issueType;
 
-
   RoadReport({
     required this.id,
     double? lat,
@@ -51,15 +55,17 @@ class RoadReport {
     this.imageUrl,
     required this.timestamp,
     this.isSynced = false,
-  })  : this.lat = lat ?? location?.latitude ?? 0.0,
-        this.lng = lng ?? location?.longitude ?? 0.0;
+  }) : this.lat = lat ?? location?.latitude ?? 0.0,
+       this.lng = lng ?? location?.longitude ?? 0.0;
 
   LatLng get location => LatLng(lat, lng);
 
   String get displayName {
     if (roadName != null && roadName!.isNotEmpty) return roadName!;
     if (description.isNotEmpty) {
-      return description.length > 20 ? '${description.substring(0, 17)}...' : description;
+      return description.length > 20
+          ? '${description.substring(0, 17)}...'
+          : description;
     }
     return 'Unnamed Location';
   }
@@ -103,20 +109,84 @@ class RoadSegment {
   final String name;
   final String type;
   final double priorityScore;
+  final Severity severity; // Pre-computed, not a getter
 
-  RoadSegment({
+  // Bounding box for fast spatial queries (avoids checking all points)
+  final double minLat;
+  final double maxLat;
+  final double minLng;
+  final double maxLng;
+
+  RoadSegment._internal({
     required this.id,
     required this.points,
     required this.name,
     required this.type,
     required this.priorityScore,
+    required this.severity,
+    required this.minLat,
+    required this.maxLat,
+    required this.minLng,
+    required this.maxLng,
   });
 
-  Severity get severity {
-    if (priorityScore >= 4.5) return Severity.level5;
-    if (priorityScore >= 3.5) return Severity.level4;
-    if (priorityScore >= 2.5) return Severity.level3;
-    if (priorityScore >= 1.5) return Severity.level2;
-    return Severity.level1;
+  factory RoadSegment({
+    required String id,
+    required List<LatLng> points,
+    required String name,
+    required String type,
+    required double priorityScore,
+  }) {
+    // Pre-compute severity once
+    final Severity sev;
+    if (priorityScore >= 4.5) {
+      sev = Severity.level5;
+    } else if (priorityScore >= 3.5) {
+      sev = Severity.level4;
+    } else if (priorityScore >= 2.5) {
+      sev = Severity.level3;
+    } else if (priorityScore >= 1.5) {
+      sev = Severity.level2;
+    } else {
+      sev = Severity.level1;
+    }
+
+    // Pre-compute bounding box
+    double minLat = double.infinity;
+    double maxLat = double.negativeInfinity;
+    double minLng = double.infinity;
+    double maxLng = double.negativeInfinity;
+
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    return RoadSegment._internal(
+      id: id,
+      points: points,
+      name: name,
+      type: type,
+      priorityScore: priorityScore,
+      severity: sev,
+      minLat: minLat,
+      maxLat: maxLat,
+      minLng: minLng,
+      maxLng: maxLng,
+    );
+  }
+
+  /// Fast check if a point is within the bounding box (with padding in meters)
+  bool isNearBoundingBox(
+    double lat,
+    double lng, {
+    double paddingDegrees = 0.001,
+  }) {
+    return lat >= (minLat - paddingDegrees) &&
+        lat <= (maxLat + paddingDegrees) &&
+        lng >= (minLng - paddingDegrees) &&
+        lng <= (maxLng + paddingDegrees);
   }
 }
