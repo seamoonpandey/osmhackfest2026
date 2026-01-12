@@ -124,10 +124,35 @@ def get_roads(db: Session = Depends(get_db)):
             ]
         }
 
+import os
+
 # -----------------------------
-# InMemory Store for fallback
+# Ensure uploads directory exists
 # -----------------------------
-MOCK_ISSUES_STORE = []
+os.makedirs("uploads", exist_ok=True)
+
+# -----------------------------
+# InMemory Store for fallback (with File Persistence)
+# -----------------------------
+MOCK_DATA_FILE = "mock_data.json"
+
+def load_mock_data():
+    if os.path.exists(MOCK_DATA_FILE):
+        try:
+            with open(MOCK_DATA_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_mock_data(data):
+    try:
+        with open(MOCK_DATA_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"Failed to save mock data: {e}")
+
+MOCK_ISSUES_STORE = load_mock_data()
 
 # -----------------------------
 # Get formatted issues (potholes, etc)
@@ -249,6 +274,7 @@ def report_issue(
                 "photo": photo_path
             }
          })
+         save_mock_data(MOCK_ISSUES_STORE)
          print(f"MOCK MOCK: Saved report {new_id} to memory. Total issues: {len(MOCK_ISSUES_STORE)}")
 
     return {"status": "Issue reported successfully"}

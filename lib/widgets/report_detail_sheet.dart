@@ -70,7 +70,7 @@ class ReportDetailSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            report.issueType.toUpperCase(),
+                            (report.issueType ?? 'Other').toUpperCase(),
                             style: GoogleFonts.plusJakartaSans(
                               fontWeight: FontWeight.w900,
                               fontSize: 12,
