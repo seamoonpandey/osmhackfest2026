@@ -186,8 +186,9 @@ class _MapScreenState extends State<MapScreen> {
       // Fallback to default if location fails
     }
 
-    final reports = await apiClient.getReports();
+    // Load segments first to populate cache for name lookup
     final segments = await apiClient.getRoadSegments();
+    final reports = await apiClient.getReports();
     if (mounted) {
       setState(() {
         _reports = reports;

@@ -26,12 +26,79 @@ class ApiClient {
     // 1. Load local reports first
     final localReports = LocalStorage.getAllReports();
     
-    // The backend `main.py` does NOT have a GET /issues endpoint.
-    // It only exposes GET /roads (aggregated risk) and POST /report.
-    // Therefore, we cannot fetch individual issues from the server.
-    // We will only return locally stored reports.
-    
-    return localReports;
+    try {
+      // 2. Try to get remote reports from current backend
+      final response = await _dio.get('/issues');
+      final Map<String, dynamic> featureCollection = response.data;
+      final List features = featureCollection['features'];
+      print('DEBUG: Fetched ${features.length} issues from backend');
+      
+      final remoteReports = await Future.wait(features.map((feature) async {
+        final props = feature['properties'];
+        final geometry = feature['geometry'];
+        final coords = geometry['coordinates']; // [lon, lat]
+        final lat = (coords[1] as num).toDouble();
+        final lng = (coords[0] as num).toDouble();
+        
+        final severityInt = (props['severity'] as num?)?.toInt() ?? 1;
+        print('DEBUG: Issue ${props['id']} has severity $severityInt');
+        final severityIndex = (severityInt - 1).clamp(0, Severity.values.length - 1);
+        
+        // Resolve Road Name
+        String? roadName;
+        final roadId = props['road_id'].toString();
+        
+        // 1. Try Cache
+        if (_cachedSegments != null) {
+          try {
+             final segment = _cachedSegments!.firstWhere((s) => s.id == roadId);
+             roadName = segment.name;
+          } catch (_) {}
+        }
+        
+        // 2. Fallback to Reverse Geocode if cache missed or name is generic
+        if (roadName == null || roadName.isEmpty) {
+           roadName = await reverseGeocode(lat, lng);
+        }
+
+        // 3. Fallback to ID
+        roadName ??= 'Road #$roadId';
+        
+        return RoadReport(
+          id: props['id'].toString(),
+          lat: lat,
+          lng: lng,
+          osmNodeId: null, 
+          roadName: roadName, 
+          severity: Severity.values[severityIndex],
+          issueType: props['type'],
+          description: '${props['type']} reported', 
+          imageUrl: props['photo'] != null && !props['photo'].startsWith('http') 
+              ? '${ApiConfig.baseUrl}${props['photo']}' 
+              : props['photo'],
+          timestamp: DateTime.now(), 
+          isSynced: true,
+        );
+      }));
+      
+      // 3. Update local storage with remote data (merging)
+      for (var remote in remoteReports) {
+         // Only save remote if it doesn't exist locally as unsynced
+         final local = LocalStorage.reportsBox.get(remote.id);
+         if (local == null) {
+           await LocalStorage.saveReport(remote);
+         }
+      }
+      
+      // Try to sync any unsynced reports now (pushing local to remote)
+      await syncUnsyncedReports();
+      
+      return LocalStorage.getAllReports();
+    } catch (e) {
+      print('Error fetching reports: $e');
+      // Offline: return whatever we have locally
+      return localReports;
+    }
   }
 
   Future<void> submitReport(RoadReport report) async {

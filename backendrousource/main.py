@@ -125,6 +125,59 @@ def get_roads(db: Session = Depends(get_db)):
         }
 
 # -----------------------------
+# InMemory Store for fallback
+# -----------------------------
+MOCK_ISSUES_STORE = []
+
+# -----------------------------
+# Get formatted issues (potholes, etc)
+# -----------------------------
+@app.get("/issues")
+def get_issues(db: Session = Depends(get_db)):
+    try:
+        # Fetch individual issues
+        result = db.execute(text("""
+            SELECT 
+                ri.id, 
+                ri.road_id, 
+                ri.issue_type, 
+                ri.severity, 
+                ri.photo_path,
+                ST_AsText(ri.geom) as wkt
+            FROM road_issues ri
+        """)).fetchall()
+
+        features = []
+        for row in result:
+            try:
+                # Parse WKT to GeoJSON geometry
+                geom_obj = wkt.loads(row.wkt)
+                geom_json = json.loads(json.dumps(geom_obj.__geo_interface__))
+            except:
+                geom_json = None
+            
+            features.append({
+                "type": "Feature",
+                "geometry": geom_json,
+                "properties": {
+                    "id": row.id,
+                    "road_id": row.road_id,
+                    "type": row.issue_type,
+                    "severity": row.severity,
+                    "photo": row.photo_path
+                }
+            })
+
+        return {"type": "FeatureCollection", "features": features}
+
+    except Exception as e:
+        print(f"Database error (likely missing PostGIS), serving from In-Memory Store: {e}")
+        return {
+            "type": "FeatureCollection",
+            "features": MOCK_ISSUES_STORE
+        }
+
+# -----------------------------
 # Report issue
 # -----------------------------
 @app.post("/report")
@@ -178,6 +231,24 @@ def report_issue(
         db.commit()
     except Exception as e:
          print(f"Database error (running in mock mode): {e}")
-         print(f"MOCK: Received report for Road {road_id}: {issue_type} (Sev {severity}) at {lat},{lon}")
+         
+         # Fallback: Save to In-Memory Store
+         import time
+         new_id = int(time.time())
+         MOCK_ISSUES_STORE.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [lon, lat]
+            },
+            "properties": {
+                "id": new_id,
+                "road_id": road_id,
+                "type": issue_type,
+                "severity": severity,
+                "photo": photo_path
+            }
+         })
+         print(f"MOCK MOCK: Saved report {new_id} to memory. Total issues: {len(MOCK_ISSUES_STORE)}")
 
     return {"status": "Issue reported successfully"}
