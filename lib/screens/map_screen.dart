@@ -10,8 +10,11 @@ import '../core/api_client.dart';
 import '../core/theme.dart';
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart'; // Clustering
+import '../widgets/report_detail_sheet.dart'; // Detail Sheet
 import '../models/models.dart';
 import 'report_screen.dart';
+import 'history_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -353,37 +356,55 @@ class _MapScreenState extends State<MapScreen> {
                   );
                 }).toList(),
               ),
-              MarkerLayer(
-                markers: [
-                  ..._reports.map((report) {
-                    final isVisible = _visibleSeverities.contains(report.severity);
-                    return Marker(
-                      point: report.location,
-                      width: 60,
-                      height: 60,
-                      child: AnimatedOpacity(
-                        opacity: isVisible ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        child: IgnorePointer(
-                          ignoring: !isVisible,
-                          child: GestureDetector(
-                            onTap: () => _showReportDetails(report),
-                            child: _buildMarker(report),
-                          ),
+              MarkerClusterLayerWidget(
+                options: MarkerClusterLayerOptions(
+                  maxClusterRadius: 45,
+                  size: const Size(40, 40),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.all(50),
+                  markers: _reports
+                      .where((report) => _visibleSeverities.contains(report.severity))
+                      .map((report) => Marker(
+                            point: report.location,
+                            width: 60,
+                            height: 60,
+                            child: GestureDetector(
+                              onTap: () => _showReportDetails(report),
+                              child: _buildMarker(report),
+                            ),
+                          ))
+                      .toList(),
+                  builder: (context, markers) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white, width: 2),
+                        borderRadius: BorderRadius.circular(20),
+                        color: AppTheme.primaryCoral,
+                        boxShadow: const [
+                           BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          markers.length.toString(),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ),
                     );
-                  }),
-                  if (_currentPosition != null && _showUserLocation)
+                  },
+                ),
+              ),
+              if (_currentPosition != null && _showUserLocation)
+                MarkerLayer(
+                  markers: [
                     Marker(
                       point: _currentPosition!,
                       width: 60,
                       height: 60,
                       child: const _UserLocationMarker(),
                     ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
           _buildSearchOverlay(),
@@ -449,6 +470,17 @@ class _MapScreenState extends State<MapScreen> {
                     Icons.my_location_rounded,
                     _showUserLocation,
                     (val) => setState(() => _showUserLocation = val),
+                  ),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    leading: const Icon(Icons.history_rounded, color: AppTheme.primaryCoral),
+                    title: const Text('My Activity', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF212529))),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
+                    },
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    dense: true,
                   ),
                   const SizedBox(height: 32),
                   const Text('ROAD FILTERS',
@@ -848,125 +880,8 @@ class _MapScreenState extends State<MapScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: AppTheme.surfaceWhite,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          report.displayName,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF212529),
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          (report.issueType ?? 'Other').toUpperCase(),
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryCoral,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getSeverityColor(report.severity).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _getSeverityColor(report.severity).withOpacity(0.5)),
-                        ),
-                        child: Text(
-                          'LEVEL ${report.severity.index + 1}',
-                          style: TextStyle(
-                            color: _getSeverityColor(report.severity),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (report.imageUrl != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: report.imageUrl!.startsWith('http')
-                        ? Image.network(
-                            report.imageUrl!,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                      : null,
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              color: AppTheme.surfaceMuted,
-                              child: const Icon(Icons.broken_image_rounded, color: Colors.black12, size: 48),
-                            ),
-                          )
-                        : Image.file(
-                            File(report.imageUrl!),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              color: AppTheme.surfaceMuted,
-                              child: const Icon(Icons.no_photography_rounded, color: Colors.black12, size: 48),
-                            ),
-                          ),
-                  ),
-                ),
-              const SizedBox(height: 16),
-              Text(
-                report.description,
-                style: const TextStyle(fontSize: 16, color: Colors.black87),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Icon(Icons.access_time, size: 16, color: Colors.black38),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Reported at: ${report.timestamp.hour}:${report.timestamp.minute}',
-                    style: const TextStyle(color: Colors.black38),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-            ],
-          ),
-        );
-      },
+      isScrollControlled: true,
+      builder: (context) => ReportDetailSheet(report: report),
     );
   }
 }
