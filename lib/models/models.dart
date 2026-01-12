@@ -5,10 +5,10 @@ part 'models.g.dart';
 
 @HiveType(typeId: 0)
 enum Severity { 
-  @HiveField(0) level1, // Very Low
-  @HiveField(1) level2, // Low
-  @HiveField(2) level3, // Medium
-  @HiveField(3) level4, // High
+  @HiveField(0) level1, // Low
+  @HiveField(1) level2, // Medium
+  @HiveField(2) level3, // High
+  @HiveField(3) level4, // Very High
   @HiveField(4) level5  // Critical
 }
 

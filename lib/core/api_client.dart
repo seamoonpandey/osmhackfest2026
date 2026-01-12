@@ -26,54 +26,12 @@ class ApiClient {
     // 1. Load local reports first
     final localReports = LocalStorage.getAllReports();
     
-    try {
-      // 2. Try to get remote reports (now /issues)
-      final response = await _dio.get('/issues');
-      final Map<String, dynamic> featureCollection = response.data;
-      final List features = featureCollection['features'];
-      
-      final remoteReports = features.map((feature) {
-        final props = feature['properties'];
-        final geometry = feature['geometry'];
-        final coords = geometry['coordinates']; // [lon, lat]
-        
-        final severityInt = (props['severity'] as num?)?.toInt() ?? 1;
-        // Ensure within valid range 1-5, convert to 0-4 index
-        final severityIndex = (severityInt - 1).clamp(0, Severity.values.length - 1);
-        
-        return RoadReport(
-          id: props['id'].toString(),
-          lat: (coords[1] as num).toDouble(),
-          lng: (coords[0] as num).toDouble(),
-          osmNodeId: null, // New API doesn't return this
-          roadName: 'Road #${props['road_id']}', // Placeholder as API only gives road_id
-          severity: Severity.values[severityIndex],
-          issueType: props['type'],
-          description: '${props['type']} reported', // Default description
-          imageUrl: props['photo'],
-          timestamp: DateTime.now(), // API doesn't return timestamp, verify if needed
-          isSynced: true,
-        );
-      }).toList();
-      
-      // 3. Update local storage with remote data (merging)
-      for (var remote in remoteReports) {
-         // Only save remote if it doesn't exist locally as unsynced
-         final local = LocalStorage.reportsBox.get(remote.id);
-         if (local == null || local.isSynced) {
-           await LocalStorage.saveReport(remote);
-         }
-      }
-      
-      // Try to sync any unsynced reports now
-      await syncUnsyncedReports();
-      
-      return LocalStorage.getAllReports();
-    } catch (e) {
-      print('Error fetching reports: $e');
-      // Offline: return whatever we have locally
-      return localReports;
-    }
+    // The backend `main.py` does NOT have a GET /issues endpoint.
+    // It only exposes GET /roads (aggregated risk) and POST /report.
+    // Therefore, we cannot fetch individual issues from the server.
+    // We will only return locally stored reports.
+    
+    return localReports;
   }
 
   Future<void> submitReport(RoadReport report) async {
@@ -174,35 +132,57 @@ class ApiClient {
     }
   }
 
+  List<RoadSegment>? _cachedSegments;
+
   Future<List<RoadSegment>> getRoadSegments() async {
+    if (_cachedSegments != null && _cachedSegments!.isNotEmpty) {
+      return _cachedSegments!;
+    }
+
     try {
       final response = await _dio.get('/roads');
       final Map<String, dynamic> featureCollection = response.data;
       final List features = featureCollection['features'];
       
-      return features.map((feature) {
+      _cachedSegments = features.expand<RoadSegment>((feature) {
         final props = feature['properties'];
         final geometry = feature['geometry'];
-        final List coordinates = geometry['coordinates']; // List of [lon, lat]
+        if (geometry == null) return <RoadSegment>[];
         
-        final points = coordinates.map<LatLng>((p) {
-          // GeoJSON is [lon, lat]
-          return LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble());
-        }).toList();
-
+        final type = geometry['type'];
+        final List<List<LatLng>> paths = [];
+        
+        if (type == 'LineString') {
+          final List coords = geometry['coordinates'];
+          paths.add(coords.map<LatLng>((p) => LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble())).toList());
+        } else if (type == 'MultiLineString') {
+           final List lines = geometry['coordinates'];
+           for (var line in lines) {
+             final List coords = line;
+             paths.add(coords.map<LatLng>((p) => LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble())).toList());
+           }
+        }
+        
         final risk = (props['risk'] as num?)?.toDouble() ?? 0.0;
+        final id = props['id'].toString();
+        final name = props['name'] ?? 'Unnamed Road';
+        final roadType = props['highway'] ?? props['road_class'] ?? 'unknown';
+        final priority = risk / 20.0; // Risk 0-100 -> 0-5
 
-        return RoadSegment(
-          id: props['id'].toString(),
-          name: props['name'] ?? 'Unnamed Road',
-          type: props['highway'] ?? props['road_class'] ?? 'unknown',
-          priorityScore: risk / 20.0, // Risk 0-100 -> 0-5
+        return paths.map((points) => RoadSegment(
+          id: id, // Multiple segments can share the same ID if they are part of a MultiLineString
+          name: name,
+          type: roadType,
+          priorityScore: priority,
           points: points,
-        );
+        ));
       }).toList();
+      
+      return _cachedSegments!;
     } catch (e) {
       print('Error fetching segments: $e');
-      rethrow;
+      // Return empty list instead of rethrowing to allow map to load at least reports
+      return _cachedSegments ?? []; 
     }
   }
 

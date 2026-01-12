@@ -4,16 +4,11 @@ The frontend has been updated to integrate with the new API endpoints defined in
 
 ## Endpoints Integrated
 
-### 1. `GET /issues` (formerly `/reports`)
+### 1. `GET /issues` (Not Implemented on Backend)
 
-- **Format**: GeoJSON FeatureCollection
-- **Use**: Fetches all road issues.
-- **Mapping**:
-  - `geometry.coordinates` -> `lat`, `lng`
-  - `properties.id` -> `id`
-  - `properties.severity` -> `severity` (Mapped 1-5 to Severity enum)
-  - `properties.type` -> `issueType`
-  - `properties.photo` -> `imageUrl`
+- **Note**: The backend does not currently support fetching individual issue reports.
+- **Behavior**: The app uses locally stored reports instead.
+- **Future**: If implemented, it should return a GeoJSON FeatureCollection.
 
 ### 2. `GET /roads` (formerly `/segments`)
 

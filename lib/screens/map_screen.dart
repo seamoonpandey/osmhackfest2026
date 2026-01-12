@@ -169,6 +169,9 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+
+    // Attempt to sync pending reports on load
+    apiClient.syncUnsyncedReports();
     
     // Get current position for initial view
     try {
@@ -335,6 +338,20 @@ class _MapScreenState extends State<MapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.osmapp',
               ),
+              PolylineLayer(
+                polylines: _segments
+                    .where((segment) => _visibleSeverities.contains(segment.severity))
+                    .map((segment) {
+                  final color = _getSeverityColor(segment.severity);
+                  return Polyline(
+                    points: segment.points,
+                    color: color.withOpacity(0.7),
+                    strokeWidth: 4.0,
+                    borderColor: Colors.black12, 
+                    borderStrokeWidth: 1.0,
+                  );
+                }).toList(),
+              ),
               MarkerLayer(
                 markers: [
                   ..._reports.map((report) {
@@ -440,11 +457,11 @@ class _MapScreenState extends State<MapScreen> {
                           color: Colors.black38,
                           letterSpacing: 1.5)),
                   const SizedBox(height: 16),
-                  _buildSidebarFilter('Level 5 (Danger)', const Color(0xFFF44336), Severity.level5),
-                  _buildSidebarFilter('Level 4 (High)', const Color(0xFFFF9800), Severity.level4),
-                  _buildSidebarFilter('Level 3 (Med)', const Color(0xFFFFC107), Severity.level3),
-                  _buildSidebarFilter('Level 2 (Low)', const Color(0xFF8BC34A), Severity.level2),
-                  _buildSidebarFilter('Level 1 (Safe)', const Color(0xFF4CAF50), Severity.level1),
+                  _buildSidebarFilter('Level 5 (Critical)', const Color(0xFFF44336), Severity.level5),
+                  _buildSidebarFilter('Level 4 (Very High)', const Color(0xFFFF9800), Severity.level4),
+                  _buildSidebarFilter('Level 3 (High)', const Color(0xFFFFC107), Severity.level3),
+                  _buildSidebarFilter('Level 2 (Medium)', const Color(0xFF8BC34A), Severity.level2),
+                  _buildSidebarFilter('Level 1 (Low)', const Color(0xFF4CAF50), Severity.level1),
                   const SizedBox(height: 32),
                   ElevatedButton.icon(
                     onPressed: () async {
@@ -644,15 +661,15 @@ class _MapScreenState extends State<MapScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLegendItem('Danger', const Color(0xFFF44336), Severity.level5),
+            _buildLegendItem('Critical', const Color(0xFFF44336), Severity.level5),
             const SizedBox(height: 8),
-            _buildLegendItem('High', const Color(0xFFFF9800), Severity.level4),
+            _buildLegendItem('Very High', const Color(0xFFFF9800), Severity.level4),
             const SizedBox(height: 8),
-            _buildLegendItem('Med', const Color(0xFFFFC107), Severity.level3),
+            _buildLegendItem('High', const Color(0xFFFFC107), Severity.level3),
             const SizedBox(height: 8),
-            _buildLegendItem('Low', const Color(0xFF8BC34A), Severity.level2),
+            _buildLegendItem('Medium', const Color(0xFF8BC34A), Severity.level2),
             const SizedBox(height: 8),
-            _buildLegendItem('Safe', const Color(0xFF4CAF50), Severity.level1),
+            _buildLegendItem('Low', const Color(0xFF4CAF50), Severity.level1),
           ],
         ),
       ),

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pokhara Road Risk Dashboard</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    #map { height: 100vh; }
+    .legend { background:white; padding:6px; line-height:18px; color:#555; }
+    .legend span { display:inline-block; width:20px; height:12px; margin-right:6px; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+
+// Initialize map
+const map = L.map('map').setView([28.2096, 83.9856], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'© OpenStreetMap contributors'
+}).addTo(map);
+
+// Map risk to colors
+function getRiskColor(risk){
+    if(risk <= 20) return "#2DC937";      // Low
+    if(risk <= 40) return "#99C140";      // Medium
+    if(risk <= 60) return "#E7B416";      // High
+    if(risk <= 80) return "#DB7B2B";      // Very High
+    return "#CC3232";                      // Critical
+}
+
+// Classify road based on highway type
+function classifyHighway(highway){
+    highway = (highway || '').toLowerCase();
+    if(highway === 'trunk') return 'Trunk';
+    if(highway === 'primary') return 'Primary';
+    if(highway === 'secondary') return 'Secondary';
+    if(highway === 'tertiary') return 'Tertiary';
+    if(highway === 'residential') return 'Residential';
+    if(['unclassified','track','footway'].includes(highway)) return 'Unclassified/Track/Footway';
+    return 'Other';
+}
+
+// Assign initial risk based on road class
+function getInitialRisk(road_class){
+    switch(road_class){
+        case "Trunk": return 80;
+        case "Primary": return 70;
+        case "Secondary": return 55;
+        case "Tertiary": return 40;
+        case "Residential": return 25;
+        case "Unclassified/Track/Footway": return 15;
+        default: return 0;
+    }
+}
+
+// Compute weighted risk
+function computeRisk(initialRisk, maxSeverity){
+    // Normalize severity 0-1 (max severity = 5)
+    const normalizedSeverity = (maxSeverity || 0) / 5;
+    const severityRisk = normalizedSeverity * 100;
+    // Weighted combination
+    const risk = 0.7 * initialRisk + 0.3 * severityRisk;
+    return Math.min(risk, 100).toFixed(2);
+}
+
+// Load local GeoJSON file
+fetch('export.geojson')  // Replace with your local file path
+.then(res => res.json())
+.then(data => {
+
+    // Compute road_class and dynamic risk
+    data.features.forEach(f => {
+        const highwayType = f.properties.highway;
+        f.properties.road_class = classifyHighway(highwayType);
+        const initialRisk = getInitialRisk(f.properties.road_class);
+        const maxSeverity = f.properties.severity || 0;
+        f.properties.risk = computeRisk(initialRisk, maxSeverity);
+    });
+
+    // Add roads to map
+    L.geoJSON(data, {
+        style: feature => ({
+            color: getRiskColor(feature.properties.risk),
+            weight: 4
+        }),
+        onEachFeature: (feature, layer) => {
+            const props = feature.properties;
+            layer.bindPopup(`
+                <b>${props.name || 'Unnamed Road'}</b><br>
+                Highway Type: ${props.highway}<br>
+                Road Class: ${props.road_class}<br>
+                Risk Score: ${props.risk}<br>
+                Max Severity: ${props.severity || 0}
+            `);
+        }
+    }).addTo(map);
+});
+
+// Risk legend
+const legend = L.control({position:'bottomright'});
+legend.onAdd = function(map){
+    const div = L.DomUtil.create('div','legend');
+    div.innerHTML = `<h4>Risk Levels</h4>
+        <span style="background:#2DC937"></span> Low (0-20)<br>
+        <span style="background:#99C140"></span> Medium (21-40)<br>
+        <span style="background:#E7B416"></span> High (41-60)<br>
+        <span style="background:#DB7B2B"></span> Very High (61-80)<br>
+        <span style="background:#CC3232"></span> Critical (81-100)`;
+    return div;
+};
+legend.addTo(map);
+
+</script>
+</body>
+</html>

@@ -420,7 +420,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'SEVERITY SCALE (1-5)',
+                  'SEVERITY SCALE',
                   style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
@@ -431,15 +431,15 @@ class _ReportScreenState extends State<ReportScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    _buildSeverityIcon(Severity.level1, '1', const Color(0xFF4CAF50)),
+                    _buildSeverityIcon(Severity.level1, 'Low', const Color(0xFF4CAF50)),
                     const SizedBox(width: 8),
-                    _buildSeverityIcon(Severity.level2, '2', const Color(0xFF8BC34A)),
+                    _buildSeverityIcon(Severity.level2, 'Med', const Color(0xFF8BC34A)),
                     const SizedBox(width: 8),
-                    _buildSeverityIcon(Severity.level3, '3', const Color(0xFFFFC107)),
+                    _buildSeverityIcon(Severity.level3, 'High', const Color(0xFFFFC107)),
                     const SizedBox(width: 8),
-                    _buildSeverityIcon(Severity.level4, '4', const Color(0xFFFF9800)),
+                    _buildSeverityIcon(Severity.level4, 'V.High', const Color(0xFFFF9800)),
                     const SizedBox(width: 8),
-                    _buildSeverityIcon(Severity.level5, '5', const Color(0xFFF44336)),
+                    _buildSeverityIcon(Severity.level5, 'Crit', const Color(0xFFF44336)),
                   ],
                 ),
                 const SizedBox(height: 24),
