@@ -381,7 +381,6 @@ class _MapScreenState extends State<MapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.osmapp',
               ),
-              PolylineLayer(polylines: _cachedPolylines),
               MarkerClusterLayerWidget(
                 options: MarkerClusterLayerOptions(
                   maxClusterRadius: 45,
