@@ -317,7 +317,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               )
             : Text(
-                'VIAPULSE',
+                'ROADWATCH',
                 style: GoogleFonts.plusJakartaSans(
                   fontWeight: FontWeight.w900,
                   fontSize: 16,
@@ -484,7 +484,7 @@ class _MapScreenState extends State<MapScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'VIA PULSE',
+                    'ROAD WATCH',
                     style: GoogleFonts.plusJakartaSans(
                       fontWeight: FontWeight.w900,
                       fontSize: 18,
